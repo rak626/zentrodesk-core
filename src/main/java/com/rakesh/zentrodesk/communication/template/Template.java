@@ -1,0 +1,61 @@
+package com.rakesh.zentrodesk.communication.template;
+
+import com.rakesh.common.entity.BaseEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder.Default;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.experimental.SuperBuilder;
+
+import java.util.UUID;
+
+@Entity
+@Getter
+@Setter
+@SuperBuilder
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@Table(
+        name = "templates",
+        indexes = {
+                @Index(name = "idx_template_tenant", columnList = "tenant_id"),
+                @Index(name = "idx_template_type", columnList = "type"),
+                @Index(name = "idx_template_status", columnList = "status")
+        }
+)
+public class Template extends BaseEntity {
+
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
+    @NotBlank
+    @Size(max = 100)
+    @Column(nullable = false, length = 100)
+    private String name;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TemplateType type;
+
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String content;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TemplateStatus status;
+
+    @Default
+    @Column(nullable = false)
+    private boolean active = true;
+}

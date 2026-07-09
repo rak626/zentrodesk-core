@@ -1,0 +1,14 @@
+package com.rakesh.zentrodesk.platform.role;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+import java.util.Set;
+
+public record RoleCreateRequest(
+        @NotBlank @Size(max = 100) String name,
+        @Size(max = 255) String description,
+        Boolean active,
+        Set<@NotBlank @Size(max = 100) String> permissions
+) {
+}

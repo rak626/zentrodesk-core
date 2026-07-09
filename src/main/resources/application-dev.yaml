@@ -1,0 +1,25 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:zentro_desk_db}
+    username: ${DB_USER:rakesh}
+    password: ${DB_PASSWORD:rakesh123_admin}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+
+app:
+  flyway:
+    seed:
+      enabled: true
+      locations: classpath:db/seed/dev
+#logging:
+#  level:
+#    com.vtcpl: DEBUG
+#    org.flywaydb: DEBUG
+#
+#frontend:
+#  url: http://localhost:3000
+#
+#jwt:
+#  secret: dnRjcGwtZGV2LWp3dC1zZWNyZXQta2V5LWZvci1sb2NhbC1kZXYtb25seQ==
