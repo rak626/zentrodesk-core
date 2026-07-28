@@ -62,6 +62,10 @@ public class Room extends BaseEntity {
     @Column(name = "base_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal basePrice;
 
+    @Size(max = 500)
+    @Column(name = "amenities_summary", length = 500)
+    private String amenitiesSummary;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private RoomStatus status;
@@ -69,4 +73,8 @@ public class Room extends BaseEntity {
     @Default
     @Column(nullable = false)
     private boolean active = true;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
 }

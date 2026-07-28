@@ -5,6 +5,8 @@ import com.rakesh.zentrodesk.platform.tenant.Tenant;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Index;
 import jakarta.persistence.CollectionTable;
@@ -52,6 +54,10 @@ public class Role extends BaseEntity {
     @Size(max = 255)
     @Column(length = 255)
     private String description;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "template_code", length = 30)
+    private FixedTenantRole templateCode;
 
     @Default
     @Column(nullable = false)

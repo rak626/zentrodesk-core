@@ -4,7 +4,8 @@
         "common::pagination",
         "common::search",
         "platform::tenant",
-        "platform::user"
+        "platform::user",
+        "platform::audit"
 })
 package com.rakesh.zentrodesk.sales;
 

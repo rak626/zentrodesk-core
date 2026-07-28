@@ -8,5 +8,6 @@ import java.util.UUID;
 
 public record PropertyResponse(UUID id, String name, PropertyType type, String address, String city, String state,
                                String country, String phone, String email, String contactPerson, PropertyStatus status,
-                               boolean active, Instant createdAt, Instant updatedAt) {
+                               boolean active, long version, PropertyInventorySummary inventory,
+                               Instant createdAt, Instant updatedAt) {
 }

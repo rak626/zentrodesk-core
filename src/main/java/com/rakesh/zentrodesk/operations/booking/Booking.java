@@ -13,6 +13,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Builder.Default;
 import lombok.EqualsAndHashCode;
@@ -22,6 +23,7 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
@@ -76,10 +78,20 @@ public class Booking extends BaseEntity {
     @Column(nullable = false, length = 30)
     private BookingStatus status;
 
+    @Column(name = "agreed_value", nullable = false, precision = 12, scale = 2)
+    private BigDecimal agreedValue;
+
+    @Column(name = "idempotency_key", length = 100)
+    private String idempotencyKey;
+
     @Column(columnDefinition = "TEXT")
     private String notes;
 
     @Default
     @Column(nullable = false)
     private boolean active = true;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
 }

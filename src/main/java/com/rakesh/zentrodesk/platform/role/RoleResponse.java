@@ -10,6 +10,7 @@ public record RoleResponse(
         String tenantName,
         String name,
         String description,
+        FixedTenantRole templateCode,
         boolean active,
         Set<String> permissions,
         Instant createdAt,

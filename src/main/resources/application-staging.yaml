@@ -1,0 +1,39 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+app:
+  flyway:
+    seed:
+      enabled: false
+  email:
+    base-url: ${APP_BASE_URL}
+    token-encryption-key: ${EMAIL_TOKEN_ENCRYPTION_KEY}
+    delivery-url: ${EMAIL_DELIVERY_URL}
+    delivery-api-key: ${EMAIL_DELIVERY_API_KEY}
+    dispatch-enabled: true
+
+logging:
+  level:
+    root: INFO
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        environment: staging
+    json:
+      stacktrace:
+        root: first
+        max-length: 4096
+        max-throwable-depth: 20
+
+springdoc:
+  swagger-ui:
+    enabled: false

@@ -7,8 +7,8 @@ import com.rakesh.zentrodesk.common.search.SearchSpecificationBuilder;
 import com.rakesh.zentrodesk.operations.task.Task;
 import com.rakesh.zentrodesk.operations.task.TaskRepository;
 import com.rakesh.zentrodesk.operations.task.TaskStatus;
+import com.rakesh.zentrodesk.platform.audit.AuditMutation;
 import com.rakesh.zentrodesk.platform.tenant.CurrentTenant;
-import com.rakesh.zentrodesk.platform.user.User;
 import com.rakesh.zentrodesk.platform.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -44,6 +44,7 @@ public class TaskService {
     }
 
     @Transactional
+    @AuditMutation(entityType = "TASK", action = "CREATE")
     public TaskResponse create(TaskRequest request) {
         UUID tenantId = currentTenant.id();
         validateUser(request.userId(), tenantId);
@@ -60,6 +61,7 @@ public class TaskService {
     }
 
     @Transactional
+    @AuditMutation(entityType = "TASK", action = "STATUS_UPDATE")
     public TaskResponse updateStatus(UUID id, TaskStatusRequest request) {
         Task task = getTask(id);
         task.setStatus(request.status());
@@ -67,15 +69,14 @@ public class TaskService {
     }
 
     private Task getTask(UUID id) {
-        Task task = taskRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Task not found"));
-        currentTenant.require(task.getTenantId());
-        return task;
+        return taskRepository.findByIdAndTenantId(id, currentTenant.id())
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
     }
 
     private void validateUser(UUID userId, UUID tenantId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        currentTenant.require(user.getTenant().getId());
-        currentTenant.require(tenantId);
+        if (!userRepository.existsByIdAndTenantId(userId, tenantId)) {
+            throw new ResourceNotFoundException("User not found");
+        }
     }
 
     private TaskResponse toResponse(Task task) {

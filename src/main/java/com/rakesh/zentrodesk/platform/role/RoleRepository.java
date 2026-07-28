@@ -18,6 +18,13 @@ public interface RoleRepository extends JpaRepository<Role, UUID>, JpaSpecificat
     @Query("select r from Role r where r.id = :id")
     Optional<Role> findWithTenantAndPermissionsById(@Param("id") UUID id);
 
+    @EntityGraph(attributePaths = {"tenant", "permissions"})
+    @Query("select r from Role r where r.id = :id and r.tenant.id = :tenantId and r.templateCode is not null")
+    Optional<Role> findWithTenantAndPermissionsByIdAndTenantId(
+            @Param("id") UUID id,
+            @Param("tenantId") UUID tenantId
+    );
+
     @Override
     @EntityGraph(attributePaths = {"tenant", "permissions"})
     Page<Role> findAll(Specification<Role> specification, Pageable pageable);

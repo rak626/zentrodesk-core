@@ -7,7 +7,9 @@ import com.rakesh.zentrodesk.common.search.SearchSpecificationBuilder;
 import com.rakesh.zentrodesk.communication.conversation.ConversationMessage;
 import com.rakesh.zentrodesk.communication.conversation.ConversationMessageRepository;
 import com.rakesh.zentrodesk.communication.conversation.ConversationMessageStatus;
+import com.rakesh.zentrodesk.platform.audit.AuditMutation;
 import com.rakesh.zentrodesk.platform.tenant.CurrentTenant;
+import com.rakesh.zentrodesk.sales.customer.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -25,6 +27,7 @@ public class ConversationMessageService {
 
     private final ConversationMessageRepository repository;
     private final CurrentTenant currentTenant;
+    private final CustomerRepository customerRepository;
 
     @Transactional(readOnly = true)
     public PageResponse<ConversationMessageResponse> findAll(int page, int size, String sort, String direction, String phone, UUID customerId, ConversationMessageStatus status) {
@@ -39,9 +42,15 @@ public class ConversationMessageService {
     }
 
     @Transactional
+    @AuditMutation(entityType = "CONVERSATION_MESSAGE", action = "CREATE")
     public ConversationMessageResponse create(ConversationMessageRequest request) {
+        UUID tenantId = currentTenant.id();
+        if (request.customerId() != null) {
+            customerRepository.findByIdAndTenantId(request.customerId(), tenantId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+        }
         ConversationMessage message = ConversationMessage.builder()
-                .tenantId(currentTenant.id())
+                .tenantId(tenantId)
                 .customerId(request.customerId())
                 .phone(request.phone().trim())
                 .direction(request.direction())
@@ -54,6 +63,7 @@ public class ConversationMessageService {
     }
 
     @Transactional
+    @AuditMutation(entityType = "CONVERSATION_MESSAGE", action = "STATUS_UPDATE")
     public ConversationMessageResponse updateStatus(UUID id, ConversationStatusRequest request) {
         ConversationMessage message = getMessage(id);
         message.setStatus(request.status());
@@ -61,9 +71,8 @@ public class ConversationMessageService {
     }
 
     private ConversationMessage getMessage(UUID id) {
-        ConversationMessage message = repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Conversation message not found"));
-        currentTenant.require(message.getTenantId());
-        return message;
+        return repository.findByIdAndTenantId(id, currentTenant.id())
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation message not found"));
     }
 
     private ConversationMessageResponse toResponse(ConversationMessage message) {

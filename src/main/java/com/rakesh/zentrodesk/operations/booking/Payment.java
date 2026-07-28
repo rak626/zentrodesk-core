@@ -10,6 +10,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -22,6 +23,7 @@ import lombok.experimental.SuperBuilder;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Getter
@@ -39,6 +41,9 @@ import java.time.Instant;
         }
 )
 public class Payment extends BaseEntity {
+
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "booking_id", nullable = false)
@@ -60,6 +65,13 @@ public class Payment extends BaseEntity {
     @Column(name = "transaction_reference", length = 100)
     private String transactionReference;
 
+    @Column(name = "idempotency_key", length = 100)
+    private String idempotencyKey;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reversal_of_payment_id")
+    private Payment reversalOf;
+
     @Column(name = "paid_at")
     private Instant paidAt;
 
@@ -70,4 +82,8 @@ public class Payment extends BaseEntity {
     @Default
     @Column(nullable = false)
     private boolean active = true;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
 }

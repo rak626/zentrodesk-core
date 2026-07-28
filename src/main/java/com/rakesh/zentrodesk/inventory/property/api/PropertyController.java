@@ -4,9 +4,11 @@ import com.rakesh.zentrodesk.common.api.ApiResponse;
 import com.rakesh.zentrodesk.common.api.PageResponse;
 import com.rakesh.zentrodesk.inventory.property.PropertyStatus;
 import com.rakesh.zentrodesk.inventory.property.PropertyType;
+import com.rakesh.zentrodesk.platform.role.TenantPermissions;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -14,6 +16,7 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/app/properties")
+@PreAuthorize("hasAuthority('" + TenantPermissions.PROPERTY_READ + "')")
 public class PropertyController {
 
     private final PropertyService propertyService;
@@ -37,17 +40,27 @@ public class PropertyController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('" + TenantPermissions.PROPERTY_CREATE + "')")
     public ApiResponse<PropertyResponse> create(@Valid @RequestBody PropertyRequest request, HttpServletRequest servletRequest) {
         return ApiResponse.success("Property created successfully", propertyService.create(request), servletRequest.getRequestURI());
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + TenantPermissions.PROPERTY_UPDATE + "')")
     public ApiResponse<PropertyResponse> update(@PathVariable UUID id, @Valid @RequestBody PropertyRequest request, HttpServletRequest servletRequest) {
         return ApiResponse.success("Property updated successfully", propertyService.update(id, request), servletRequest.getRequestURI());
     }
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAuthority('" + TenantPermissions.PROPERTY_UPDATE + "')")
     public ApiResponse<PropertyResponse> updateStatus(@PathVariable UUID id, @Valid @RequestBody PropertyStatusRequest request, HttpServletRequest servletRequest) {
         return ApiResponse.success("Property status updated successfully", propertyService.updateStatus(id, request), servletRequest.getRequestURI());
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + TenantPermissions.PROPERTY_UPDATE + "')")
+    public ApiResponse<Void> disable(@PathVariable UUID id, HttpServletRequest servletRequest) {
+        propertyService.disable(id);
+        return ApiResponse.success("Property disabled successfully", null, servletRequest.getRequestURI());
     }
 }

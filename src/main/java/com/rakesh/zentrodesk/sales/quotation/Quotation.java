@@ -8,6 +8,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -96,4 +97,8 @@ public class Quotation extends BaseEntity {
     @Default
     @Column(nullable = false)
     private boolean active = true;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
 }

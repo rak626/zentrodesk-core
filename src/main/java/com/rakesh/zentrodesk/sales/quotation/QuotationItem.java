@@ -43,6 +43,9 @@ public class QuotationItem extends BaseEntity {
     @JoinColumn(name = "quotation_id", nullable = false)
     private Quotation quotation;
 
+    @Column(nullable = false)
+    private Integer position;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private QuotationItemType type;

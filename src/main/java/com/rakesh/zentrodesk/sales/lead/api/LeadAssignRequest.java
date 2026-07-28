@@ -4,5 +4,9 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.UUID;
 
-public record LeadAssignRequest(@NotNull UUID assignedUserId) {
+public record LeadAssignRequest(@NotNull UUID assignedUserId, Long version) {
+
+    public LeadAssignRequest(UUID assignedUserId) {
+        this(assignedUserId, null);
+    }
 }

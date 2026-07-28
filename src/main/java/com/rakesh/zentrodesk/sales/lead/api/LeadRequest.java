@@ -22,6 +22,41 @@ public record LeadRequest(
         BigDecimal budget,
         LeadStatus status,
         String remarks,
-        Boolean active
+        Boolean active,
+        UUID customerId,
+        Long version
 ) {
+    public LeadRequest(
+            UUID assignedUserId,
+            String name,
+            String phone,
+            String email,
+            String source,
+            String destination,
+            LocalDate travelDate,
+            Integer adults,
+            Integer children,
+            BigDecimal budget,
+            LeadStatus status,
+            String remarks,
+            Boolean active
+    ) {
+        this(
+                assignedUserId,
+                name,
+                phone,
+                email,
+                source,
+                destination,
+                travelDate,
+                adults,
+                children,
+                budget,
+                status,
+                remarks,
+                active,
+                null,
+                null
+        );
+    }
 }

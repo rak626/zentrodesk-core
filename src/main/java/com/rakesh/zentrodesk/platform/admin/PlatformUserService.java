@@ -5,6 +5,8 @@ import com.rakesh.zentrodesk.common.exception.BadRequestException;
 import com.rakesh.zentrodesk.common.exception.ResourceNotFoundException;
 import com.rakesh.zentrodesk.common.pagination.PaginationUtils;
 import com.rakesh.zentrodesk.common.search.SearchSpecificationBuilder;
+import com.rakesh.zentrodesk.iam.authentication.AccountType;
+import com.rakesh.zentrodesk.iam.refresh.RefreshTokenManager;
 import com.rakesh.zentrodesk.platform.user.PasswordResetRequest;
 import com.rakesh.zentrodesk.platform.user.PlatformRole;
 import com.rakesh.zentrodesk.platform.user.PlatformUser;
@@ -30,6 +32,7 @@ public class PlatformUserService {
 
     private final PlatformUserRepository platformUserRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenManager refreshTokenManager;
 
     @Transactional(readOnly = true)
     public PageResponse<PlatformUserResponse> findAll(int page, int size, String sort, String direction,
@@ -76,6 +79,10 @@ public class PlatformUserService {
         user.setRole(request.role());
         if (request.enabled() != null) {
             user.setEnabled(request.enabled());
+            if (!request.enabled()) {
+                user.setSessionVersion(user.getSessionVersion() + 1);
+                refreshTokenManager.revokeAccount(AccountType.PLATFORM, user.getId());
+            }
         }
         return toResponse(user);
     }
@@ -94,6 +101,8 @@ public class PlatformUserService {
         PlatformUser user = getUser(id);
         preventLastSuperAdminLoss(user, user.getRole(), false);
         user.setEnabled(false);
+        user.setSessionVersion(user.getSessionVersion() + 1);
+        refreshTokenManager.revokeAccount(AccountType.PLATFORM, user.getId());
         return toResponse(user);
     }
 
@@ -102,6 +111,8 @@ public class PlatformUserService {
         requireSuperAdmin();
         PlatformUser user = getUser(id);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setSessionVersion(user.getSessionVersion() + 1);
+        refreshTokenManager.revokeAccount(AccountType.PLATFORM, user.getId());
     }
 
     private void requireSuperAdmin() {

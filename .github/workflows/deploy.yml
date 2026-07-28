@@ -1,0 +1,62 @@
+name: deploy-backend-digest
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Signed ghcr.io image including @sha256 digest
+        required: true
+        type: string
+      environment:
+        description: Protected GitHub environment
+        required: true
+        type: choice
+        options: [staging, production]
+      rollback_image:
+        description: Previously deployed signed digest
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: sigstore/cosign-installer@v3
+      - name: Require immutable digests
+        env:
+          IMAGE: ${{ inputs.image }}
+          ROLLBACK_IMAGE: ${{ inputs.rollback_image }}
+        run: |
+          [[ "${IMAGE}" == ghcr.io/*@sha256:* ]]
+          [[ "${ROLLBACK_IMAGE}" == ghcr.io/*@sha256:* ]]
+      - name: Verify keyless release signature
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: >-
+          cosign verify
+          --certificate-oidc-issuer=https://token.actions.githubusercontent.com
+          --certificate-identity-regexp='^https://github.com/rak626/zentrodesk-core/.github/workflows/ci.yml@refs/tags/v'
+          "${IMAGE}"
+      - name: Invoke protected deployment hook
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.DEPLOY_HOOK_URL }}
+          DEPLOY_HOOK_TOKEN: ${{ secrets.DEPLOY_HOOK_TOKEN }}
+          IMAGE: ${{ inputs.image }}
+          ROLLBACK_IMAGE: ${{ inputs.rollback_image }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          payload="$(jq -n \
+            --arg component backend \
+            --arg environment "${TARGET_ENVIRONMENT}" \
+            --arg image "${IMAGE}" \
+            --arg rollbackImage "${ROLLBACK_IMAGE}" \
+            '{component:$component, environment:$environment, image:$image, rollbackImage:$rollbackImage}')"
+          curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer ${DEPLOY_HOOK_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "${payload}" \
+            "${DEPLOY_HOOK_URL}"

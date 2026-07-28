@@ -3,5 +3,9 @@ package com.rakesh.zentrodesk.sales.lead.api;
 import com.rakesh.zentrodesk.sales.lead.LeadStatus;
 import jakarta.validation.constraints.NotNull;
 
-public record LeadStatusRequest(@NotNull LeadStatus status) {
+public record LeadStatusRequest(@NotNull LeadStatus status, Long version) {
+
+    public LeadStatusRequest(LeadStatus status) {
+        this(status, null);
+    }
 }

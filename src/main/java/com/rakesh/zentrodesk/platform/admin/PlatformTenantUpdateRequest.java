@@ -1,7 +1,10 @@
 package com.rakesh.zentrodesk.platform.admin;
 
+import com.rakesh.zentrodesk.platform.tenant.SubscriptionStatus;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record PlatformTenantUpdateRequest(
@@ -15,6 +18,9 @@ public record PlatformTenantUpdateRequest(
         @Size(max = 100) String country,
         @Size(max = 50) String timezone,
         @Size(max = 10) String currency,
-        Boolean active
+        Boolean active,
+        SubscriptionStatus subscriptionStatus,
+        @Size(max = 50) @Pattern(regexp = "^[A-Za-z][A-Za-z0-9_]*$") String planCode,
+        @Positive Integer seatLimit
 ) {
 }

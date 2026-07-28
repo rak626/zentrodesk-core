@@ -7,6 +7,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -46,6 +47,9 @@ public class Lead extends BaseEntity {
     @Column(name = "assigned_user_id")
     private UUID assignedUserId;
 
+    @Column(name = "customer_id")
+    private UUID customerId;
+
     @NotBlank
     @Size(max = 150)
     @Column(nullable = false, length = 150)
@@ -54,6 +58,9 @@ public class Lead extends BaseEntity {
     @Size(max = 20)
     @Column(length = 20)
     private String phone;
+
+    @Column(name = "normalized_phone", length = 32)
+    private String normalizedPhone;
 
     @Email
     @Size(max = 150)
@@ -88,4 +95,8 @@ public class Lead extends BaseEntity {
     @Default
     @Column(nullable = false)
     private boolean active = true;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
 }

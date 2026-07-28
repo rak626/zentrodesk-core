@@ -43,11 +43,12 @@ on conflict on constraint uk_quotation_tenant_number do update set
     active = excluded.active;
 
 insert into quotation_items (
-    id, created_at, updated_at, quotation_id, type, description, unit, quantity, unit_price, amount, remarks, active
+    id, created_at, updated_at, quotation_id, type, description, unit, quantity,
+    unit_price, amount, remarks, active, position
 ) values
-    ('30000000-0000-0000-0000-000000000201', current_timestamp, current_timestamp, '30000000-0000-0000-0000-000000000101', 'HOTEL', 'Five nights family room package', 'night', 5, 6500.00, 32500.00, null, true),
-    ('30000000-0000-0000-0000-000000000202', current_timestamp, current_timestamp, '30000000-0000-0000-0000-000000000101', 'VEHICLE', 'Private SUV with driver', 'day', 6, 4200.00, 25200.00, null, true),
-    ('30000000-0000-0000-0000-000000000203', current_timestamp, current_timestamp, '30000000-0000-0000-0000-000000000101', 'PERMIT', 'Restricted area permit support', 'person', 3, 1766.67, 5300.00, null, true)
+    ('30000000-0000-0000-0000-000000000201', current_timestamp, current_timestamp, '30000000-0000-0000-0000-000000000101', 'HOTEL', 'Five nights family room package', 'night', 5, 6500.00, 32500.00, null, true, 0),
+    ('30000000-0000-0000-0000-000000000202', current_timestamp, current_timestamp, '30000000-0000-0000-0000-000000000101', 'VEHICLE', 'Private SUV with driver', 'day', 6, 4200.00, 25200.00, null, true, 1),
+    ('30000000-0000-0000-0000-000000000203', current_timestamp, current_timestamp, '30000000-0000-0000-0000-000000000101', 'PERMIT', 'Restricted area permit support', 'person', 3, 1766.67, 5300.00, null, true, 2)
 on conflict (id) do update set
     updated_at = excluded.updated_at,
     quotation_id = excluded.quotation_id,
@@ -58,4 +59,5 @@ on conflict (id) do update set
     unit_price = excluded.unit_price,
     amount = excluded.amount,
     remarks = excluded.remarks,
-    active = excluded.active;
+    active = excluded.active,
+    position = excluded.position;

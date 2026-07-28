@@ -1,16 +1,15 @@
 package com.rakesh.zentrodesk.platform.auth;
 
-import com.rakesh.zentrodesk.common.exception.BadRequestException;
-import com.rakesh.zentrodesk.common.exception.ResourceNotFoundException;
 import com.rakesh.zentrodesk.common.exception.UnauthorizedException;
 import com.rakesh.zentrodesk.iam.authentication.AccountType;
+import com.rakesh.zentrodesk.iam.authentication.AuthenticationSecurityEvent;
 import com.rakesh.zentrodesk.iam.principal.CurrentUser;
-import com.rakesh.zentrodesk.iam.refresh.AccountRefreshToken;
-import com.rakesh.zentrodesk.iam.refresh.AccountRefreshTokenRepository;
+import com.rakesh.zentrodesk.iam.refresh.RefreshTokenManager;
 import com.rakesh.zentrodesk.platform.user.User;
 import com.rakesh.zentrodesk.platform.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -19,9 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -32,60 +29,75 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthenticationService {
 
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final String DUMMY_PASSWORD_HASH = "$2a$10$p5fbPORpSB9ramt5/MkVt.hZzz963uDRioF4CdQMMtanz57GFtn06";
 
     private final UserRepository userRepository;
-    private final AccountRefreshTokenRepository refreshTokenRepository;
+    private final RefreshTokenManager refreshTokenManager;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
+    private final AuthenticationThrottle authenticationThrottle;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
+        authenticationThrottle.requireAllowed(AccountType.TENANT, request.email());
         User user = resolveLoginUser(request);
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            log.warn("Invalid login attempt for email {}", request.email());
+        boolean passwordMatches = passwordEncoder.matches(
+                request.password(),
+                user == null ? DUMMY_PASSWORD_HASH : user.getPasswordHash()
+        );
+        boolean active = user != null && user.isActive() && user.getRole().isActive() && user.getTenant().isActive();
+        if (!passwordMatches || !active) {
+            authenticationThrottle.recordFailure(AccountType.TENANT, request.email());
+            publish(null, "LOGIN", "REJECTED");
+            log.warn("Tenant login rejected");
             throw new UnauthorizedException("Invalid credentials");
         }
-        if (!user.isActive() || !user.getRole().isActive() || !user.getTenant().isActive()) {
-            throw new UnauthorizedException("User account is not active");
-        }
+        authenticationThrottle.recordSuccess(AccountType.TENANT, request.email());
+        publish(user.getId(), "LOGIN", "SUCCESS");
 
         user.setLastLoginAt(Instant.now());
         AuthenticatedUser principal = toPrincipal(user);
         JwtService.TokenPair accessToken = jwtService.generateAccessToken(principal);
-        AccountRefreshToken refreshToken = createRefreshToken(user.getId());
+        RefreshTokenManager.IssuedRefreshToken refreshToken = createRefreshToken(user.getId());
         return new LoginResponse(
                 "Bearer",
                 accessToken.token(),
                 accessToken.expiresAt(),
-                refreshToken.getToken(),
-                refreshToken.getExpiresAt(),
+                refreshToken.token(),
+                refreshToken.expiresAt(),
                 toCurrentUser(principal)
         );
     }
 
     @Transactional
     public RefreshTokenResponse refresh(RefreshTokenRequest request) {
-        AccountRefreshToken existing = refreshTokenRepository.findByToken(request.refreshToken())
-                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
-        if (existing.getAccountType() != AccountType.TENANT || existing.isRevoked() || existing.getExpiresAt().isBefore(Instant.now())) {
+        RefreshTokenManager.ConsumedRefreshToken consumed = refreshTokenManager.consume(request.refreshToken(), AccountType.TENANT);
+        if (!consumed.valid()) {
+            publish(null, "REFRESH", "REJECTED");
             throw new UnauthorizedException("Refresh token is expired or revoked");
         }
 
-        existing.setRevoked(true);
-        existing.setRevokedAt(Instant.now());
-        User user = userRepository.findWithTenantRoleAndPermissionsById(existing.getAccountId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        User user = userRepository.findWithTenantRoleAndPermissionsById(consumed.accountId())
+                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
+        if (!user.isActive() || !user.getRole().isActive() || !user.getTenant().isActive()) {
+            refreshTokenManager.revokeAccount(AccountType.TENANT, user.getId());
+            throw new UnauthorizedException("Refresh token is expired or revoked");
+        }
         AuthenticatedUser principal = toPrincipal(user);
         JwtService.TokenPair accessToken = jwtService.generateAccessToken(principal);
-        AccountRefreshToken refreshToken = createRefreshToken(user.getId());
+        RefreshTokenManager.IssuedRefreshToken refreshToken = refreshTokenManager.issueReplacement(
+                consumed,
+                Instant.now().plusMillis(jwtProperties.refreshTokenExpiration())
+        );
+        publish(user.getId(), "REFRESH", "SUCCESS");
         return new RefreshTokenResponse(
                 "Bearer",
                 accessToken.token(),
                 accessToken.expiresAt(),
-                refreshToken.getToken(),
-                refreshToken.getExpiresAt()
+                refreshToken.token(),
+                refreshToken.expiresAt()
         );
     }
 
@@ -105,40 +117,26 @@ public class AuthenticationService {
     private User resolveLoginUser(LoginRequest request) {
         if (StringUtils.hasText(request.tenantCode())) {
             return userRepository.findWithTenantRoleAndPermissionsByEmailAndTenantCode(request.email(), request.tenantCode())
-                    .orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
+                    .orElse(null);
         }
         List<User> matches = userRepository.findAllWithTenantRoleAndPermissionsByEmail(request.email());
-        if (matches.isEmpty()) {
-            throw new UnauthorizedException("Invalid credentials");
-        }
-        if (matches.size() > 1) {
-            throw new BadRequestException("Tenant code is required for this email");
-        }
-        return matches.getFirst();
+        return matches.size() == 1 ? matches.getFirst() : null;
     }
 
     @Transactional
     public void logout(RefreshTokenRequest request) {
-        AccountRefreshToken existing = refreshTokenRepository.findByToken(request.refreshToken())
-                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
-        if (existing.getAccountType() != AccountType.TENANT) {
+        if (!refreshTokenManager.revoke(request.refreshToken(), AccountType.TENANT)) {
             throw new UnauthorizedException("Invalid refresh token");
         }
-        existing.setRevoked(true);
-        existing.setRevokedAt(Instant.now());
+        publish(null, "LOGOUT", "SUCCESS");
     }
 
-    private AccountRefreshToken createRefreshToken(UUID userId) {
-        byte[] randomBytes = new byte[48];
-        SECURE_RANDOM.nextBytes(randomBytes);
-        AccountRefreshToken refreshToken = AccountRefreshToken.builder()
-                .accountType(AccountType.TENANT)
-                .accountId(userId)
-                .token(Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes))
-                .expiresAt(Instant.now().plusMillis(jwtProperties.refreshTokenExpiration()))
-                .revoked(false)
-                .build();
-        return refreshTokenRepository.save(refreshToken);
+    private RefreshTokenManager.IssuedRefreshToken createRefreshToken(UUID userId) {
+        return refreshTokenManager.issue(
+                AccountType.TENANT,
+                userId,
+                Instant.now().plusMillis(jwtProperties.refreshTokenExpiration())
+        );
     }
 
     private Set<GrantedAuthority> authorities(User user) {
@@ -157,6 +155,16 @@ public class AuthenticationService {
                 .replaceAll("[^A-Za-z0-9]+", "_")
                 .replaceAll("^_+|_+$", "")
                 .toUpperCase();
+    }
+
+    private void publish(UUID accountId, String action, String outcome) {
+        eventPublisher.publishEvent(new AuthenticationSecurityEvent(
+                Instant.now(),
+                AccountType.TENANT,
+                accountId,
+                action,
+                outcome
+        ));
     }
 
     private CurrentUserResponse toCurrentUser(CurrentUser user) {

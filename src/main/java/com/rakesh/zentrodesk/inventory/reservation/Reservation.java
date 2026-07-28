@@ -58,4 +58,8 @@ public class Reservation extends BaseEntity {
     @Default
     @Column(nullable = false)
     private boolean active = true;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
 }

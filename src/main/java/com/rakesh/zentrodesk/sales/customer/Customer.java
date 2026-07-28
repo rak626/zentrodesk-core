@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -54,10 +55,16 @@ public class Customer extends BaseEntity {
     @Column(length = 20)
     private String phone;
 
+    @Column(name = "normalized_phone", length = 32)
+    private String normalizedPhone;
+
     @Email
     @Size(max = 150)
     @Column(length = 150)
     private String email;
+
+    @Column(name = "normalized_email", length = 150)
+    private String normalizedEmail;
 
     @Size(max = 255)
     @Column(length = 255)
@@ -81,4 +88,8 @@ public class Customer extends BaseEntity {
     @Default
     @Column(nullable = false)
     private boolean active = true;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
 }

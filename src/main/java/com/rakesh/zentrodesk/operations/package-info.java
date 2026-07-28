@@ -5,7 +5,10 @@
         "common::search",
         "platform::tenant",
         "platform::user",
-        "sales::customer"
+        "sales::customer",
+        "sales::lead",
+        "sales::quotation",
+        "platform::audit"
 })
 package com.rakesh.zentrodesk.operations;
 

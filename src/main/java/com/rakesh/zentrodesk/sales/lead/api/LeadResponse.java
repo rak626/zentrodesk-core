@@ -22,6 +22,8 @@ public record LeadResponse(
         LeadStatus status,
         String remarks,
         boolean active,
+        UUID customerId,
+        long version,
         Instant createdAt,
         Instant updatedAt
 ) {

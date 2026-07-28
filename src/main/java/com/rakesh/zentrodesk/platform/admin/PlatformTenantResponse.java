@@ -1,5 +1,7 @@
 package com.rakesh.zentrodesk.platform.admin;
 
+import com.rakesh.zentrodesk.platform.tenant.SubscriptionStatus;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -16,6 +18,9 @@ public record PlatformTenantResponse(
         String timezone,
         String currency,
         boolean active,
+        SubscriptionStatus subscriptionStatus,
+        String planCode,
+        int seatLimit,
         Instant createdAt,
         Instant updatedAt
 ) {

@@ -3,9 +3,11 @@ package com.rakesh.zentrodesk.operations.task.api;
 import com.rakesh.zentrodesk.common.api.ApiResponse;
 import com.rakesh.zentrodesk.common.api.PageResponse;
 import com.rakesh.zentrodesk.operations.task.TaskStatus;
+import com.rakesh.zentrodesk.platform.role.TenantPermissions;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -14,6 +16,7 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/app/tasks")
+@PreAuthorize("hasAuthority('" + TenantPermissions.TASK_READ + "')")
 public class TaskController {
 
     private final TaskService service;
@@ -32,11 +35,13 @@ public class TaskController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('" + TenantPermissions.TASK_CREATE + "')")
     public ApiResponse<TaskResponse> create(@Valid @RequestBody TaskRequest request, HttpServletRequest servletRequest) {
         return ApiResponse.success("Task created successfully", service.create(request), servletRequest.getRequestURI());
     }
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAuthority('" + TenantPermissions.TASK_UPDATE + "')")
     public ApiResponse<TaskResponse> updateStatus(@PathVariable UUID id, @Valid @RequestBody TaskStatusRequest request, HttpServletRequest servletRequest) {
         return ApiResponse.success("Task status updated successfully", service.updateStatus(id, request), servletRequest.getRequestURI());
     }

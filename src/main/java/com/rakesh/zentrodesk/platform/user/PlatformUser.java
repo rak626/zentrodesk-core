@@ -63,6 +63,10 @@ public class PlatformUser extends BaseEntity {
     private Instant lastLoginAt;
 
     @Default
+    @Column(name = "session_version", nullable = false)
+    private int sessionVersion = 0;
+
+    @Default
     @Column(nullable = false)
     private boolean enabled = true;
 }

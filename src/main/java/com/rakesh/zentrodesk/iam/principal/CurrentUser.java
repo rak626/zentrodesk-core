@@ -18,6 +18,8 @@ public interface CurrentUser extends UserDetails {
 
     String roleName();
 
+    int sessionVersion();
+
     default boolean isPlatformUser() {
         return accountType() == AccountType.PLATFORM;
     }

@@ -18,6 +18,7 @@ public record PropertyRequest(
         @Email @Size(max = 150) String email,
         @Size(max = 100) String contactPerson,
         PropertyStatus status,
-        Boolean active
+        Boolean active,
+        Long version
 ) {
 }

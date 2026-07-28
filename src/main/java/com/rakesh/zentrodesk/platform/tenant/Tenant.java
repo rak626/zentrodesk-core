@@ -3,6 +3,8 @@ package com.rakesh.zentrodesk.platform.tenant;
 import com.rakesh.common.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
@@ -76,4 +78,19 @@ public class Tenant extends BaseEntity {
     @Column(nullable = false)
     @lombok.Builder.Default
     private boolean active = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "subscription_status", nullable = false, length = 30)
+    @lombok.Builder.Default
+    private SubscriptionStatus subscriptionStatus = SubscriptionStatus.TRIAL;
+
+    @NotBlank
+    @Size(max = 50)
+    @Column(name = "plan_code", nullable = false, length = 50)
+    @lombok.Builder.Default
+    private String planCode = "STARTER";
+
+    @Column(name = "seat_limit", nullable = false)
+    @lombok.Builder.Default
+    private int seatLimit = 5;
 }

@@ -1,0 +1,15 @@
+package com.rakesh.zentrodesk.common.exception;
+
+public enum ErrorCode {
+    ACCESS_DENIED,
+    AUTHENTICATION_FAILED,
+    AUTHENTICATION_RATE_LIMITED,
+    BAD_REQUEST,
+    CONFLICT,
+    INTERNAL_ERROR,
+    INVALID_REQUEST,
+    RESOURCE_NOT_FOUND,
+    SEARCH_RATE_LIMITED,
+    UNAUTHORIZED,
+    VALIDATION_FAILED
+}

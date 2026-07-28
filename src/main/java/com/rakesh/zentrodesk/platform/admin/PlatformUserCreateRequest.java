@@ -1,5 +1,7 @@
 package com.rakesh.zentrodesk.platform.admin;
 
+import com.rakesh.zentrodesk.platform.auth.StrongPassword;
+import io.swagger.v3.oas.annotations.media.Schema;
 import com.rakesh.zentrodesk.platform.user.PlatformRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -11,7 +13,10 @@ public record PlatformUserCreateRequest(
         @Size(max = 100) String lastName,
         @NotBlank @Email @Size(max = 150) String email,
         @NotNull PlatformRole role,
-        @NotBlank @Size(min = 8, max = 100) String password,
+        @StrongPassword
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minLength = 12, maxLength = 100,
+                pattern = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9\\s]).+$")
+        String password,
         Boolean enabled
 ) {
 }

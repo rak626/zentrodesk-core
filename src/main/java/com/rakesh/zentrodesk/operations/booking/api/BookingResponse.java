@@ -19,9 +19,11 @@ public record BookingResponse(
         BookingStatus status,
         String notes,
         boolean active,
+        BigDecimal agreedValue,
         BigDecimal paidAmount,
-        BigDecimal totalPaid,
+        BigDecimal balanceDue,
         PaymentStatus paymentStatus,
+        long version,
         Instant createdAt,
         Instant updatedAt
 ) {

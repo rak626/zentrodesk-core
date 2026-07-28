@@ -1,7 +1,12 @@
 @ApplicationModule(allowedDependencies = {
         "common::api",
+        "common::exception",
+        "iam::principal",
         "platform::tenant",
+        "platform::audit",
+        "sales::customer",
         "sales::lead",
+        "sales::quotation",
         "operations::booking",
         "operations::driver",
         "operations::task",

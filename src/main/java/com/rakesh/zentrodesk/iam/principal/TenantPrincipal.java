@@ -17,6 +17,7 @@ public record TenantPrincipal(
         UUID roleId,
         String roleName,
         boolean active,
+        int sessionVersion,
         Collection<? extends GrantedAuthority> authorities
 ) implements CurrentUser {
 

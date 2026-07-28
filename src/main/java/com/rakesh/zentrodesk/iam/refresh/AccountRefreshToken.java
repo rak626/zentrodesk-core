@@ -31,7 +31,8 @@ import java.util.UUID;
         name = "account_refresh_tokens",
         indexes = {
                 @Index(name = "idx_account_refresh_token_account", columnList = "account_type, account_id"),
-                @Index(name = "idx_account_refresh_token_token", columnList = "token")
+                @Index(name = "idx_account_refresh_token_hash", columnList = "token_hash"),
+                @Index(name = "idx_account_refresh_token_family", columnList = "family_id")
         }
 )
 public class AccountRefreshToken extends BaseEntity {
@@ -44,8 +45,14 @@ public class AccountRefreshToken extends BaseEntity {
     private UUID accountId;
 
     @NotBlank
-    @Column(nullable = false, unique = true, length = 512)
-    private String token;
+    @Column(name = "token_hash", nullable = false, unique = true, length = 64)
+    private String tokenHash;
+
+    @Column(name = "family_id", nullable = false)
+    private UUID familyId;
+
+    @Column(name = "parent_token_id")
+    private UUID parentTokenId;
 
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
@@ -56,4 +63,11 @@ public class AccountRefreshToken extends BaseEntity {
 
     @Column(name = "revoked_at")
     private Instant revokedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "revoked_reason", length = 30)
+    private RefreshTokenRevocationReason revokedReason;
+
+    @Column(name = "reuse_detected_at")
+    private Instant reuseDetectedAt;
 }

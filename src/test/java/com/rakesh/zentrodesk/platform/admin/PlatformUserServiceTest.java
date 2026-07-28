@@ -1,7 +1,9 @@
 package com.rakesh.zentrodesk.platform.admin;
 
 import com.rakesh.zentrodesk.common.exception.BadRequestException;
+import com.rakesh.zentrodesk.iam.authentication.AccountType;
 import com.rakesh.zentrodesk.iam.principal.PlatformPrincipal;
+import com.rakesh.zentrodesk.iam.refresh.RefreshTokenManager;
 import com.rakesh.zentrodesk.platform.user.PlatformRole;
 import com.rakesh.zentrodesk.platform.user.PlatformUser;
 import com.rakesh.zentrodesk.platform.user.PlatformUserRepository;
@@ -19,11 +21,13 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class PlatformUserServiceTest {
 
     private final FakePlatformUserRepository fakeRepository = new FakePlatformUserRepository();
     private final PlatformUserRepository repository = fakeRepository.proxy;
+    private final RecordingRefreshTokenManager refreshTokenManager = new RecordingRefreshTokenManager();
     private final PasswordEncoder passwordEncoder = new PasswordEncoder() {
         @Override
         public String encode(CharSequence rawPassword) {
@@ -35,7 +39,11 @@ class PlatformUserServiceTest {
             return false;
         }
     };
-    private final PlatformUserService service = new PlatformUserService(repository, passwordEncoder);
+    private final PlatformUserService service = new PlatformUserService(
+            repository,
+            passwordEncoder,
+            refreshTokenManager
+    );
 
     @AfterEach
     void clearSecurityContext() {
@@ -88,6 +96,28 @@ class PlatformUserServiceTest {
         assertThrows(BadRequestException.class, () -> service.update(userId, request));
     }
 
+    @Test
+    void passwordResetInvalidatesExistingSessions() {
+        UUID userId = UUID.randomUUID();
+        authenticateSuperAdmin(UUID.randomUUID());
+        PlatformUser user = PlatformUser.builder()
+                .id(userId)
+                .firstName("Platform")
+                .email("admin@example.com")
+                .passwordHash("old-hash")
+                .role(PlatformRole.ADMIN)
+                .enabled(true)
+                .sessionVersion(3)
+                .build();
+        fakeRepository.user = user;
+
+        service.resetPassword(userId, new com.rakesh.zentrodesk.platform.user.PasswordResetRequest("SecurePass1!"));
+
+        assertEquals("encoded-SecurePass1!", user.getPasswordHash());
+        assertEquals(4, user.getSessionVersion());
+        assertEquals(userId, refreshTokenManager.revokedAccountId);
+    }
+
     private void authenticateSuperAdmin(UUID userId) {
         PlatformPrincipal principal = new PlatformPrincipal(
                 userId,
@@ -97,6 +127,7 @@ class PlatformUserServiceTest {
                 "Admin",
                 "SUPER_ADMIN",
                 true,
+                0,
                 List.of(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))
         );
         SecurityContextHolder.getContext().setAuthentication(
@@ -123,5 +154,19 @@ class PlatformUserServiceTest {
                 }
         );
 
+    }
+
+    private static final class RecordingRefreshTokenManager extends RefreshTokenManager {
+        private UUID revokedAccountId;
+
+        private RecordingRefreshTokenManager() {
+            super(null, event -> { });
+        }
+
+        @Override
+        public void revokeAccount(AccountType accountType, UUID accountId) {
+            assertEquals(AccountType.PLATFORM, accountType);
+            revokedAccountId = accountId;
+        }
     }
 }

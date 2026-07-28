@@ -26,7 +26,11 @@ import java.util.UUID;
         indexes = {
                 @Index(name = "idx_driver_tenant", columnList = "tenant_id"),
                 @Index(name = "idx_driver_phone", columnList = "phone"),
-                @Index(name = "idx_driver_status", columnList = "status")
+                @Index(name = "idx_driver_status", columnList = "status"),
+                @Index(name = "idx_driver_tenant_vehicle", columnList = "tenant_id, vehicle_id")
+        },
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_driver_id_tenant", columnNames = {"id", "tenant_id"})
         }
 )
 public class Driver extends BaseEntity {
@@ -55,6 +59,10 @@ public class Driver extends BaseEntity {
     @Column(name = "vehicle_type", length = 100)
     private String vehicleType;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vehicle_id")
+    private Vehicle vehicle;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private DriverStatus status;
@@ -62,4 +70,8 @@ public class Driver extends BaseEntity {
     @Default
     @Column(nullable = false)
     private boolean active = true;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
 }

@@ -2,6 +2,9 @@ package com.rakesh.zentrodesk.platform.user;
 
 import com.rakesh.zentrodesk.common.api.ApiResponse;
 import com.rakesh.zentrodesk.common.api.PageResponse;
+import com.rakesh.zentrodesk.platform.invitation.InvitationResponse;
+import com.rakesh.zentrodesk.platform.password.PasswordResetService;
+import com.rakesh.zentrodesk.platform.role.TenantPermissions;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,10 +25,11 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/app/users")
-@PreAuthorize("hasRole('ADMINISTRATOR')")
+@PreAuthorize("hasAuthority('" + TenantPermissions.TEAM_READ + "')")
 public class UserController {
 
     private final UserService userService;
+    private final PasswordResetService passwordResetService;
 
     @GetMapping
     public ApiResponse<PageResponse<UserResponse>> findAll(
@@ -50,40 +54,59 @@ public class UserController {
         return ApiResponse.success("User retrieved successfully", userService.findById(id), servletRequest.getRequestURI());
     }
 
+    @GetMapping("/summary")
+    public ApiResponse<TeamSummaryResponse> summary(HttpServletRequest servletRequest) {
+        return ApiResponse.success("Team summary retrieved successfully", userService.summary(), servletRequest.getRequestURI());
+    }
+
     @PostMapping
-    public ApiResponse<UserResponse> create(@Valid @RequestBody UserCreateRequest request, HttpServletRequest servletRequest) {
-        return ApiResponse.success("User created successfully", userService.create(request), servletRequest.getRequestURI());
+    @PreAuthorize("hasAuthority('" + TenantPermissions.TEAM_CREATE + "')")
+    public ApiResponse<InvitationResponse> create(@Valid @RequestBody UserCreateRequest request, HttpServletRequest servletRequest) {
+        return ApiResponse.success("Invitation created successfully", userService.create(request), servletRequest.getRequestURI());
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + TenantPermissions.TEAM_UPDATE + "')")
     public ApiResponse<UserResponse> update(@PathVariable UUID id, @Valid @RequestBody UserUpdateRequest request, HttpServletRequest servletRequest) {
         return ApiResponse.success("User updated successfully", userService.update(id, request), servletRequest.getRequestURI());
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + TenantPermissions.TEAM_DELETE + "')")
     public ApiResponse<Void> delete(@PathVariable UUID id, HttpServletRequest servletRequest) {
         userService.delete(id);
         return ApiResponse.success("User deleted successfully", null, servletRequest.getRequestURI());
     }
 
     @PatchMapping("/{id}/enable")
+    @PreAuthorize("hasAuthority('" + TenantPermissions.TEAM_UPDATE + "')")
     public ApiResponse<UserResponse> enable(@PathVariable UUID id, HttpServletRequest servletRequest) {
         return ApiResponse.success("User enabled successfully", userService.enable(id), servletRequest.getRequestURI());
     }
 
     @PatchMapping("/{id}/disable")
+    @PreAuthorize("hasAuthority('" + TenantPermissions.TEAM_UPDATE + "')")
     public ApiResponse<UserResponse> disable(@PathVariable UUID id, HttpServletRequest servletRequest) {
         return ApiResponse.success("User disabled successfully", userService.disable(id), servletRequest.getRequestURI());
     }
 
     @PostMapping("/{id}/roles")
+    @PreAuthorize("hasAuthority('" + TenantPermissions.TEAM_ASSIGN_ROLE + "')")
     public ApiResponse<UserResponse> assignRole(@PathVariable UUID id, @Valid @RequestBody UserRoleAssignmentRequest request, HttpServletRequest servletRequest) {
         return ApiResponse.success("User role assigned successfully", userService.assignRole(id, request), servletRequest.getRequestURI());
     }
 
     @PostMapping("/{id}/reset-password")
-    public ApiResponse<Void> resetPassword(@PathVariable UUID id, @Valid @RequestBody PasswordResetRequest request, HttpServletRequest servletRequest) {
-        userService.resetPassword(id, request);
-        return ApiResponse.success("Password reset successfully", null, servletRequest.getRequestURI());
+    @PreAuthorize("hasAuthority('" + TenantPermissions.TEAM_RESET_PASSWORD + "')")
+    public ApiResponse<Void> resetPassword(@PathVariable UUID id, HttpServletRequest servletRequest) {
+        passwordResetService.requestForUser(id);
+        return ApiResponse.success("Password reset instructions queued successfully", null, servletRequest.getRequestURI());
+    }
+
+    @PostMapping("/{id}/sessions/revoke")
+    @PreAuthorize("hasAuthority('" + TenantPermissions.TEAM_UPDATE + "')")
+    public ApiResponse<Void> revokeSessions(@PathVariable UUID id, HttpServletRequest servletRequest) {
+        userService.revokeSessions(id);
+        return ApiResponse.success("User sessions revoked successfully", null, servletRequest.getRequestURI());
     }
 }

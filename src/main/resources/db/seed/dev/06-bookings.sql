@@ -4,7 +4,7 @@ insert into bookings (
     id, created_at, updated_at, tenant_id, customer_id, quotation_id, driver_id, booking_number, travel_start, travel_end, status, notes, active
 ) values
     ('60000000-0000-0000-0000-000000000001', current_timestamp, current_timestamp, '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000101', null, 'BK-DEV-001', current_date + 30, current_date + 35, 'CONFIRMED', 'Sample confirmed family booking.', true)
-on conflict on constraint uk_booking_number do update set
+on conflict on constraint uk_booking_tenant_number do update set
     updated_at = excluded.updated_at,
     tenant_id = excluded.tenant_id,
     customer_id = excluded.customer_id,

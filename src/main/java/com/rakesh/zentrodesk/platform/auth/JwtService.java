@@ -3,6 +3,7 @@ package com.rakesh.zentrodesk.platform.auth;
 import com.rakesh.zentrodesk.iam.authentication.AccountType;
 import com.rakesh.zentrodesk.iam.principal.CurrentUser;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.security.core.GrantedAuthority;
@@ -24,10 +25,14 @@ public class JwtService {
 
     private final JwtProperties properties;
     private final SecretKey signingKey;
+    private final Optional<SecretKey> previousSigningKey;
 
     public JwtService(JwtProperties properties) {
         this.properties = properties;
         this.signingKey = createSigningKey(properties.secret());
+        this.previousSigningKey = Optional.ofNullable(properties.previousSecret())
+                .filter(secret -> !secret.isBlank())
+                .map(this::createSigningKey);
     }
 
     public TokenPair generateAccessToken(CurrentUser user) {
@@ -37,6 +42,7 @@ public class JwtService {
         claims.put("type", user.accountType().name());
         claims.put("email", user.email());
         claims.put("role", user.roleName());
+        claims.put("sessionVersion", user.sessionVersion());
         claims.put("authorities", user.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .toList());
@@ -70,14 +76,29 @@ public class JwtService {
 
     public boolean isValid(String token, CurrentUser user) {
         Claims claims = parseClaims(token);
+        Object sessionVersion = claims.get("sessionVersion");
         return user.id().toString().equals(claims.getSubject())
                 && user.accountType().name().equals(claims.get("type", String.class))
+                && sessionVersion instanceof Number version
+                && version.intValue() == user.sessionVersion()
+                && user.isEnabled()
                 && claims.getExpiration().after(new Date());
     }
 
     private Claims parseClaims(String token) {
+        try {
+            return parseClaims(token, signingKey);
+        } catch (JwtException currentSecretFailure) {
+            if (previousSigningKey.isEmpty()) {
+                throw currentSecretFailure;
+            }
+            return parseClaims(token, previousSigningKey.orElseThrow());
+        }
+    }
+
+    private Claims parseClaims(String token, SecretKey key) {
         return Jwts.parser()
-                .verifyWith(signingKey)
+                .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

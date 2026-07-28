@@ -22,7 +22,7 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/app/roles")
-@PreAuthorize("hasRole('ADMINISTRATOR')")
+@PreAuthorize("hasAuthority('" + TenantPermissions.ROLE_READ + "')")
 public class RoleController {
 
     private final RoleService roleService;
@@ -50,22 +50,26 @@ public class RoleController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('" + TenantPermissions.TEAM_UPDATE + "')")
     public ApiResponse<RoleResponse> create(@Valid @RequestBody RoleCreateRequest request, HttpServletRequest servletRequest) {
         return ApiResponse.success("Role created successfully", roleService.create(request), servletRequest.getRequestURI());
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + TenantPermissions.TEAM_UPDATE + "')")
     public ApiResponse<RoleResponse> update(@PathVariable UUID id, @Valid @RequestBody RoleUpdateRequest request, HttpServletRequest servletRequest) {
         return ApiResponse.success("Role updated successfully", roleService.update(id, request), servletRequest.getRequestURI());
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + TenantPermissions.TEAM_UPDATE + "')")
     public ApiResponse<Void> delete(@PathVariable UUID id, HttpServletRequest servletRequest) {
         roleService.delete(id);
         return ApiResponse.success("Role deleted successfully", null, servletRequest.getRequestURI());
     }
 
     @PostMapping("/{id}/permissions")
+    @PreAuthorize("hasAuthority('" + TenantPermissions.TEAM_UPDATE + "')")
     public ApiResponse<RoleResponse> assignPermissions(@PathVariable UUID id, @Valid @RequestBody RolePermissionRequest request, HttpServletRequest servletRequest) {
         return ApiResponse.success("Role permissions assigned successfully", roleService.assignPermissions(id, request), servletRequest.getRequestURI());
     }

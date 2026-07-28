@@ -17,6 +17,9 @@ public record PaymentResponse(
         Instant paidAt,
         String remarks,
         boolean active,
+        String idempotencyKey,
+        UUID reversalOfPaymentId,
+        long version,
         Instant createdAt,
         Instant updatedAt
 ) {

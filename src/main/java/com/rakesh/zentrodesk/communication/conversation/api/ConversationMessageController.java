@@ -3,9 +3,11 @@ package com.rakesh.zentrodesk.communication.conversation.api;
 import com.rakesh.zentrodesk.common.api.ApiResponse;
 import com.rakesh.zentrodesk.common.api.PageResponse;
 import com.rakesh.zentrodesk.communication.conversation.ConversationMessageStatus;
+import com.rakesh.zentrodesk.platform.role.TenantPermissions;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -13,6 +15,7 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/app/conversations/messages")
+@PreAuthorize("hasAuthority('" + TenantPermissions.CONVERSATION_READ + "')")
 public class ConversationMessageController {
 
     private final ConversationMessageService service;
@@ -30,11 +33,13 @@ public class ConversationMessageController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('" + TenantPermissions.CONVERSATION_CREATE + "')")
     public ApiResponse<ConversationMessageResponse> create(@Valid @RequestBody ConversationMessageRequest request, HttpServletRequest servletRequest) {
         return ApiResponse.success("Conversation message created successfully", service.create(request), servletRequest.getRequestURI());
     }
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAuthority('" + TenantPermissions.CONVERSATION_UPDATE + "')")
     public ApiResponse<ConversationMessageResponse> updateStatus(@PathVariable UUID id, @Valid @RequestBody ConversationStatusRequest request, HttpServletRequest servletRequest) {
         return ApiResponse.success("Conversation status updated successfully", service.updateStatus(id, request), servletRequest.getRequestURI());
     }

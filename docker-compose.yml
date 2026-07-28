@@ -1,16 +1,35 @@
 services:
   postgres:
-    image: postgres:16-alpine
-    container_name: zentro-desk-postgres
-    restart: always
+    image: postgres:17-alpine
     environment:
-      POSTGRES_DB: zentro_desk_db
-      POSTGRES_USER: rakesh
-      POSTGRES_PASSWORD: rakesh123_admin
+      POSTGRES_DB: ${POSTGRES_DB:-zentro_desk_db}
+      POSTGRES_USER: ${POSTGRES_USER:-zentrodesk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zentrodesk}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
 
 volumes:
-  postgres_data:
+  postgres-data:
+  redis-data:

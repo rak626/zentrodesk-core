@@ -15,6 +15,7 @@ public record PlatformPrincipal(
         String lastName,
         String roleName,
         boolean active,
+        int sessionVersion,
         Collection<? extends GrantedAuthority> authorities
 ) implements CurrentUser {
 

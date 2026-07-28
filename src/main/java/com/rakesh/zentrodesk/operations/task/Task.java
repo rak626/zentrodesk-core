@@ -54,6 +54,12 @@ public class Task extends BaseEntity {
     @Column(nullable = false, length = 30)
     private TaskStatus status;
 
+    @Column(name = "source_type", length = 40)
+    private String sourceType;
+
+    @Column(name = "source_id")
+    private UUID sourceId;
+
     @Default
     @Column(nullable = false)
     private boolean active = true;

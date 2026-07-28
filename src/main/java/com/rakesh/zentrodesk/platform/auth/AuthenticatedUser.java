@@ -19,6 +19,7 @@ public record AuthenticatedUser(
         UUID roleId,
         String roleName,
         boolean active,
+        int sessionVersion,
         Collection<? extends GrantedAuthority> authorities
 ) implements CurrentUser {
 
@@ -32,7 +33,8 @@ public record AuthenticatedUser(
                 user.getLastName(),
                 user.getRole().getId(),
                 user.getRole().getName(),
-                user.isActive(),
+                user.isActive() && user.getRole().isActive() && user.getTenant().isActive(),
+                user.getSessionVersion(),
                 authorities
         );
     }
