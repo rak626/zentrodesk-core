@@ -12,12 +12,16 @@ import com.rakesh.zentrodesk.sales.customer.Customer;
 import com.rakesh.zentrodesk.sales.customer.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -28,6 +32,8 @@ public class CustomerService {
 
     private static final Set<String> ALLOWED_SORTS =
             Set.of("createdAt", "updatedAt", "name", "city", "active");
+    private static final CustomerRelationshipSummary EMPTY_RELATIONSHIPS =
+            new CustomerRelationshipSummary(0, 0, 0);
 
     private final CustomerRepository customerRepository;
     private final CurrentTenant currentTenant;
@@ -51,7 +57,15 @@ public class CustomerService {
                 ))
                 .and(SearchSpecificationBuilder.uuidEquals("tenantId", tenantId))
                 .and(SearchSpecificationBuilder.booleanEquals("active", active));
-        return PageResponse.from(customerRepository.findAll(specification, pageable).map(this::toResponse));
+        Page<Customer> customers = customerRepository.findAll(specification, pageable);
+        Map<UUID, CustomerRelationshipSummary> relationships = relationshipSummaries(
+                tenantId,
+                customers.getContent().stream().map(Customer::getId).toList()
+        );
+        return PageResponse.from(customers.map(customer -> toResponse(
+                customer,
+                relationships.getOrDefault(customer.getId(), EMPTY_RELATIONSHIPS)
+        )));
     }
 
     @Transactional(readOnly = true)
@@ -169,21 +183,63 @@ public class CustomerService {
     }
 
     private CustomerResponse toResponse(Customer customer) {
-        Map<String, Object> counts = jdbcClient.sql("""
-                        select
-                            (select count(*) from zentro_desk.leads where tenant_id = :tenantId and customer_id = :customerId) as leads,
-                            (select count(*) from zentro_desk.quotations where tenant_id = :tenantId and customer_id = :customerId) as quotations,
-                            (select count(*) from zentro_desk.bookings where tenant_id = :tenantId and customer_id = :customerId) as bookings
+        CustomerRelationshipSummary relationships = relationshipSummaries(
+                customer.getTenantId(),
+                List.of(customer.getId())
+        ).getOrDefault(customer.getId(), EMPTY_RELATIONSHIPS);
+        return toResponse(customer, relationships);
+    }
+
+    private Map<UUID, CustomerRelationshipSummary> relationshipSummaries(
+            UUID tenantId,
+            Collection<UUID> customerIds
+    ) {
+        if (customerIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Map.Entry<UUID, CustomerRelationshipSummary>> entries = jdbcClient.sql("""
+                        select relationship.customer_id,
+                               sum(relationship.leads) as leads,
+                               sum(relationship.quotations) as quotations,
+                               sum(relationship.bookings) as bookings
+                        from (
+                            select customer_id, count(*) as leads, 0 as quotations, 0 as bookings
+                            from zentro_desk.leads
+                            where tenant_id = :tenantId and customer_id in (:customerIds)
+                            group by customer_id
+                            union all
+                            select customer_id, 0 as leads, count(*) as quotations, 0 as bookings
+                            from zentro_desk.quotations
+                            where tenant_id = :tenantId and customer_id in (:customerIds)
+                            group by customer_id
+                            union all
+                            select customer_id, 0 as leads, 0 as quotations, count(*) as bookings
+                            from zentro_desk.bookings
+                            where tenant_id = :tenantId and customer_id in (:customerIds)
+                            group by customer_id
+                        ) relationship
+                        group by relationship.customer_id
                         """)
-                .param("tenantId", customer.getTenantId())
-                .param("customerId", customer.getId())
-                .query()
-                .singleRow();
-        CustomerRelationshipSummary relationships = new CustomerRelationshipSummary(
-                ((Number) counts.get("leads")).longValue(),
-                ((Number) counts.get("quotations")).longValue(),
-                ((Number) counts.get("bookings")).longValue()
-        );
+                .param("tenantId", tenantId)
+                .param("customerIds", customerIds)
+                .query((resultSet, rowNumber) -> Map.entry(
+                        resultSet.getObject("customer_id", UUID.class),
+                        new CustomerRelationshipSummary(
+                                resultSet.getLong("leads"),
+                                resultSet.getLong("quotations"),
+                                resultSet.getLong("bookings")
+                        )
+                ))
+                .list();
+        Map<UUID, CustomerRelationshipSummary> relationships = new HashMap<>();
+        entries.forEach(entry -> relationships.put(entry.getKey(), entry.getValue()));
+        return relationships;
+    }
+
+    private CustomerResponse toResponse(
+            Customer customer,
+            CustomerRelationshipSummary relationships
+    ) {
         return new CustomerResponse(
                 customer.getId(),
                 customer.getName(),

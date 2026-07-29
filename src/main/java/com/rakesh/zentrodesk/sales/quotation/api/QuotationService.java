@@ -182,6 +182,12 @@ public class QuotationService {
         return toResponse(quotation);
     }
 
+    @Transactional
+    @AuditMutation(entityType = "QUOTATION", action = "DISABLE")
+    public void disable(UUID id) {
+        getQuotation(id).setActive(false);
+    }
+
     private Quotation getQuotation(UUID id) {
         return quotationRepository.findByIdAndTenantId(id, currentTenant.id())
                 .orElseThrow(() -> new ResourceNotFoundException("Quotation not found"));

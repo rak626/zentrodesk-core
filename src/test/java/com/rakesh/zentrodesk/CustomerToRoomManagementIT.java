@@ -165,6 +165,86 @@ class CustomerToRoomManagementIT extends PostgreSqlIntegrationTest {
     }
 
     @Test
+    void batchesCustomerRelationshipSummariesForPage() {
+        Workspace workspace = createWorkspace();
+        authenticate(workspace);
+        CustomerResponse relatedCustomer = createCustomer("Related Customer", "8333333333");
+        CustomerResponse unrelatedCustomer = createCustomer("Unrelated Customer", "8444444444");
+
+        leadService.create(new LeadRequest(
+                workspace.userId(),
+                "Related Lead",
+                "8555555555",
+                "related.lead@example.com",
+                "Referral",
+                "Gangtok",
+                LocalDate.now().plusDays(10),
+                2,
+                0,
+                new BigDecimal("50000"),
+                LeadStatus.NEW,
+                null,
+                true,
+                relatedCustomer.id(),
+                null
+        ));
+        quotationService.create(new QuotationRequest(
+                null,
+                relatedCustomer.id(),
+                LocalDate.now().plusDays(10),
+                LocalDate.now().plusDays(12),
+                2,
+                0,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                LocalDate.now().plusDays(5),
+                null,
+                null,
+                true,
+                null,
+                List.of(new QuotationItemRequest(
+                        QuotationItemType.HOTEL,
+                        "Two nights",
+                        "night",
+                        2,
+                        new BigDecimal("100.00"),
+                        null
+                ))
+        ));
+        bookingService.create(new BookingRequest(
+                relatedCustomer.id(),
+                null,
+                null,
+                null,
+                LocalDate.now().plusDays(10),
+                LocalDate.now().plusDays(12),
+                null,
+                null,
+                true,
+                new BigDecimal("200.00"),
+                "relationship-summary",
+                null
+        ));
+
+        var customers = customerService.findAll(0, 20, "name", "asc", null, true);
+        CustomerResponse related = customers.content().stream()
+                .filter(customer -> customer.id().equals(relatedCustomer.id()))
+                .findFirst()
+                .orElseThrow();
+        CustomerResponse unrelated = customers.content().stream()
+                .filter(customer -> customer.id().equals(unrelatedCustomer.id()))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(1, related.relationships().leads());
+        assertEquals(1, related.relationships().quotations());
+        assertEquals(1, related.relationships().bookings());
+        assertEquals(0, unrelated.relationships().leads());
+        assertEquals(0, unrelated.relationships().quotations());
+        assertEquals(0, unrelated.relationships().bookings());
+    }
+
+    @Test
     void calculatesQuotationConvertsOnceAndBalancesIdempotentPayments() {
         Workspace workspace = createWorkspace();
         authenticate(workspace);

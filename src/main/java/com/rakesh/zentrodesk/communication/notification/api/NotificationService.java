@@ -29,7 +29,7 @@ public class NotificationService {
             "createdAt", "updatedAt", "title", "status", "category", "active"
     );
     private static final List<String> ALLOWED_DEEP_LINK_PREFIXES = List.of(
-            "/dashboard", "/leads", "/bookings", "/availability", "/drivers", "/reports"
+            "/dashboard", "/leads", "/bookings", "/availability", "/drivers", "/reports", "/settings"
     );
 
     private final NotificationRepository repository;

@@ -125,6 +125,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/api/dev/emails/**",
+                                "/api/webhooks/whatsapp/**",
                                 "/actuator/health/liveness",
                                 "/actuator/health/readiness"
                         ).permitAll()

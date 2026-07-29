@@ -18,3 +18,13 @@ app:
     base-url: http://localhost:3000
     token-encryption-key: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
     dispatch-enabled: false
+  whatsapp:
+    app-id: integration-meta-app-id
+    app-secret: integration-whatsapp-app-secret
+    embedded-signup-config-id: integration-embedded-signup-config-id
+    graph-version: v23.0
+    token-encryption-key: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+    webhook-verify-token: integration-whatsapp-verify-token
+    webhook-public-url: https://example.test/api/webhooks/whatsapp
+    dispatch-enabled: false
+    webhook-processing-enabled: false

@@ -64,7 +64,7 @@ app:
     metrics-token: ${METRICS_TOKEN:}
   security:
     jwt:
-      secret: ${JWT_SECRET}
-      previous-secret: ${JWT_PREVIOUS_SECRET:}
+      secret: ${JWT_SECRET:r23412319923042342342342312312312123123112312}
+      previous-secret: ${JWT_PREVIOUS_SECRET:3we42342342345fg234f23423423fdfsf24324}
       access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:900000}
       refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000}

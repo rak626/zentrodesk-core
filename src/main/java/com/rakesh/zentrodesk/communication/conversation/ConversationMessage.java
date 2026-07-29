@@ -31,7 +31,8 @@ import java.util.UUID;
         indexes = {
                 @Index(name = "idx_conversation_tenant", columnList = "tenant_id"),
                 @Index(name = "idx_conversation_customer", columnList = "customer_id"),
-                @Index(name = "idx_conversation_status", columnList = "status")
+                @Index(name = "idx_conversation_status", columnList = "status"),
+                @Index(name = "idx_conversation_message_thread", columnList = "conversation_id, created_at")
         }
 )
 public class ConversationMessage extends BaseEntity {
@@ -39,8 +40,17 @@ public class ConversationMessage extends BaseEntity {
     @Column(name = "tenant_id", nullable = false)
     private UUID tenantId;
 
+    @Column(name = "conversation_id", nullable = false)
+    private UUID conversationId;
+
     @Column(name = "customer_id")
     private UUID customerId;
+
+    @Column(name = "sent_by_user_id")
+    private UUID sentByUserId;
+
+    @Column(name = "business_phone_number_id", length = 100)
+    private String businessPhoneNumberId;
 
     @NotBlank
     @Size(max = 20)
@@ -53,6 +63,11 @@ public class ConversationMessage extends BaseEntity {
 
     @Column(columnDefinition = "TEXT", nullable = false)
     private String message;
+
+    @Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "message_type", nullable = false, length = 20)
+    private ConversationMessageType messageType = ConversationMessageType.TEXT;
 
     @Size(max = 100)
     @Column(name = "provider_message_id", length = 100)

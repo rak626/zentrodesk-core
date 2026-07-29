@@ -10,6 +10,8 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID>, JpaSp
 
     Optional<Customer> findByIdAndTenantId(UUID id, UUID tenantId);
 
+    Optional<Customer> findByTenantIdAndNormalizedPhoneAndActiveTrue(UUID tenantId, String normalizedPhone);
+
     boolean existsByTenantIdAndNormalizedPhoneAndActiveTrue(UUID tenantId, String normalizedPhone);
 
     boolean existsByTenantIdAndNormalizedPhoneAndActiveTrueAndIdNot(

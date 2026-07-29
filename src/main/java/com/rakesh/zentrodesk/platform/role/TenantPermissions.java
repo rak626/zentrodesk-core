@@ -17,6 +17,7 @@ public final class TenantPermissions {
     public static final String QUOTATION_READ = "QUOTATION_READ";
     public static final String QUOTATION_CREATE = "QUOTATION_CREATE";
     public static final String QUOTATION_UPDATE = "QUOTATION_UPDATE";
+    public static final String QUOTATION_DELETE = "QUOTATION_DELETE";
     public static final String BOOKING_READ = "BOOKING_READ";
     public static final String BOOKING_CREATE = "BOOKING_CREATE";
     public static final String BOOKING_UPDATE = "BOOKING_UPDATE";
@@ -43,6 +44,8 @@ public final class TenantPermissions {
     public static final String CONVERSATION_READ = "CONVERSATION_READ";
     public static final String CONVERSATION_CREATE = "CONVERSATION_CREATE";
     public static final String CONVERSATION_UPDATE = "CONVERSATION_UPDATE";
+    public static final String CONVERSATION_ASSIGN = "CONVERSATION_ASSIGN";
+    public static final String WHATSAPP_CONFIGURE = "WHATSAPP_CONFIGURE";
     public static final String NOTIFICATION_READ = "NOTIFICATION_READ";
     public static final String NOTIFICATION_UPDATE = "NOTIFICATION_UPDATE";
     public static final String REPORT_READ = "REPORT_READ";
@@ -70,6 +73,7 @@ public final class TenantPermissions {
             QUOTATION_READ,
             QUOTATION_CREATE,
             QUOTATION_UPDATE,
+            QUOTATION_DELETE,
             BOOKING_READ,
             BOOKING_CREATE,
             BOOKING_UPDATE,
@@ -96,6 +100,8 @@ public final class TenantPermissions {
             CONVERSATION_READ,
             CONVERSATION_CREATE,
             CONVERSATION_UPDATE,
+            CONVERSATION_ASSIGN,
+            WHATSAPP_CONFIGURE,
             NOTIFICATION_READ,
             NOTIFICATION_UPDATE,
             REPORT_READ,

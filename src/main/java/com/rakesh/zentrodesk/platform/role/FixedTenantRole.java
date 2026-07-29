@@ -7,6 +7,7 @@ import static com.rakesh.zentrodesk.platform.role.TenantPermissions.BOOKING_CREA
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.BOOKING_READ;
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.BOOKING_UPDATE;
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.CONVERSATION_CREATE;
+import static com.rakesh.zentrodesk.platform.role.TenantPermissions.CONVERSATION_ASSIGN;
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.CONVERSATION_READ;
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.CONVERSATION_UPDATE;
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.CUSTOMER_CREATE;
@@ -57,6 +58,7 @@ public enum FixedTenantRole {
             PROPERTY_CREATE, PROPERTY_UPDATE, ROOM_READ, ROOM_CREATE, ROOM_UPDATE, RESERVATION_READ,
             RESERVATION_CREATE, RESERVATION_UPDATE, DRIVER_READ, DRIVER_CREATE, DRIVER_UPDATE, DRIVER_DELETE,
             TASK_READ, TASK_CREATE, TASK_UPDATE, CONVERSATION_READ, CONVERSATION_CREATE, CONVERSATION_UPDATE,
+            CONVERSATION_ASSIGN,
             NOTIFICATION_READ, NOTIFICATION_UPDATE, REPORT_READ, REPORT_EXPORT, AUDIT_READ, TEAM_READ, ROLE_READ
     )),
     SALES("Sales", "Customer, lead, quotation, and booking sales workflows", Set.of(
@@ -69,10 +71,12 @@ public enum FixedTenantRole {
             DASHBOARD_READ, CUSTOMER_READ, BOOKING_READ, BOOKING_UPDATE, PROPERTY_READ, PROPERTY_CREATE,
             PROPERTY_UPDATE, ROOM_READ, ROOM_CREATE, ROOM_UPDATE, RESERVATION_READ, RESERVATION_CREATE,
             RESERVATION_UPDATE, DRIVER_READ, DRIVER_CREATE, DRIVER_UPDATE, DRIVER_DELETE, TASK_READ, TASK_CREATE,
-            TASK_UPDATE, NOTIFICATION_READ, NOTIFICATION_UPDATE
+            TASK_UPDATE, CONVERSATION_READ, CONVERSATION_CREATE, CONVERSATION_UPDATE,
+            NOTIFICATION_READ, NOTIFICATION_UPDATE
     )),
     ACCOUNTS("Accounts", "Booking payment and financial reporting access", Set.of(
             DASHBOARD_READ, CUSTOMER_READ, BOOKING_READ, PAYMENT_READ, PAYMENT_CREATE, PAYMENT_UPDATE,
+            CONVERSATION_READ, CONVERSATION_CREATE, CONVERSATION_UPDATE,
             NOTIFICATION_READ, NOTIFICATION_UPDATE, REPORT_READ, REPORT_EXPORT
     ));
 

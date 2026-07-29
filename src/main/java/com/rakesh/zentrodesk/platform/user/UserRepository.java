@@ -84,6 +84,14 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
     @Query("""
             select u.id from User u
             where u.tenant.id = :tenantId
+              and u.role.templateCode = com.rakesh.zentrodesk.platform.role.FixedTenantRole.OWNER
+              and u.active = true
+            """)
+    List<UUID> findActiveOwnerIds(@Param("tenantId") UUID tenantId);
+
+    @Query("""
+            select u.id from User u
+            where u.tenant.id = :tenantId
               and u.role.templateCode in (
                 com.rakesh.zentrodesk.platform.role.FixedTenantRole.OWNER,
                 com.rakesh.zentrodesk.platform.role.FixedTenantRole.MANAGER,

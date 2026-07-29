@@ -36,6 +36,20 @@ public class ApplicationMetrics {
         ).increment();
     }
 
+    public void whatsAppDelivery(String outcome) {
+        meterRegistry.counter(
+                "zentrodesk.whatsapp.delivery",
+                "outcome", bounded(outcome)
+        ).increment();
+    }
+
+    public void whatsAppWebhook(String outcome) {
+        meterRegistry.counter(
+                "zentrodesk.whatsapp.webhook",
+                "outcome", bounded(outcome)
+        ).increment();
+    }
+
     public void apiRequest(String scope, String method, int status, Duration duration) {
         meterRegistry.timer(
                 "zentrodesk.api.requests",
@@ -57,7 +71,7 @@ public class ApplicationMetrics {
             case "TENANT", "PLATFORM", "ACTUATOR", "OTHER",
                     "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD",
                     "LOGIN", "REFRESH", "LOGOUT",
-                    "SUCCESS", "REJECTED", "SENT", "RETRY", "FAILED" -> value.toLowerCase();
+                    "SUCCESS", "REJECTED", "SENT", "RETRY", "FAILED", "PROCESSED" -> value.toLowerCase();
             default -> "other";
         };
     }

@@ -2,6 +2,8 @@ package com.rakesh.zentrodesk.platform.role;
 
 import com.rakesh.zentrodesk.analytics.dashboard.DashboardController;
 import com.rakesh.zentrodesk.communication.conversation.api.ConversationMessageController;
+import com.rakesh.zentrodesk.communication.conversation.api.CustomerConversationController;
+import com.rakesh.zentrodesk.communication.whatsapp.api.WhatsAppConfigurationController;
 import com.rakesh.zentrodesk.communication.notification.api.NotificationController;
 import com.rakesh.zentrodesk.inventory.property.api.PropertyController;
 import com.rakesh.zentrodesk.inventory.reservation.api.ReservationController;
@@ -42,15 +44,19 @@ class FixedTenantRoleTest {
     @Test
     void roleMatrixSeparatesRepresentativeAllowedAndForbiddenActions() {
         assertAllowed(FixedTenantRole.OWNER, TenantPermissions.TEAM_DELETE);
+        assertAllowed(FixedTenantRole.OWNER, TenantPermissions.WHATSAPP_CONFIGURE);
         assertAllowed(FixedTenantRole.MANAGER, TenantPermissions.PROPERTY_UPDATE);
+        assertAllowed(FixedTenantRole.MANAGER, TenantPermissions.CONVERSATION_ASSIGN);
         assertAllowed(FixedTenantRole.MANAGER, TenantPermissions.AUDIT_READ);
         assertForbidden(FixedTenantRole.MANAGER, TenantPermissions.TEAM_DELETE);
         assertAllowed(FixedTenantRole.SALES, TenantPermissions.LEAD_CREATE);
         assertForbidden(FixedTenantRole.SALES, TenantPermissions.PROPERTY_CREATE);
         assertForbidden(FixedTenantRole.SALES, TenantPermissions.AUDIT_READ);
         assertAllowed(FixedTenantRole.OPERATIONS, TenantPermissions.RESERVATION_UPDATE);
+        assertAllowed(FixedTenantRole.OPERATIONS, TenantPermissions.CONVERSATION_CREATE);
         assertForbidden(FixedTenantRole.OPERATIONS, TenantPermissions.PAYMENT_CREATE);
         assertAllowed(FixedTenantRole.ACCOUNTS, TenantPermissions.PAYMENT_CREATE);
+        assertAllowed(FixedTenantRole.ACCOUNTS, TenantPermissions.CONVERSATION_CREATE);
         assertForbidden(FixedTenantRole.ACCOUNTS, TenantPermissions.LEAD_READ);
     }
 
@@ -66,6 +72,8 @@ class FixedTenantRoleTest {
                 DriverController.class,
                 TaskController.class,
                 ConversationMessageController.class,
+                CustomerConversationController.class,
+                WhatsAppConfigurationController.class,
                 NotificationController.class,
                 UserController.class,
                 RoleController.class,

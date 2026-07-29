@@ -22,3 +22,13 @@ app:
     base-url: ${APP_BASE_URL:http://localhost:3000}
     token-encryption-key: ${EMAIL_TOKEN_ENCRYPTION_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
     dispatch-enabled: true
+  whatsapp:
+    app-id: ${META_APP_ID:dev-meta-app-id}
+    app-secret: ${META_APP_SECRET:dev-whatsapp-app-secret}
+    embedded-signup-config-id: ${META_EMBEDDED_SIGNUP_CONFIG_ID:dev-embedded-signup-config-id}
+    graph-version: ${META_GRAPH_API_VERSION:v23.0}
+    token-encryption-key: ${WHATSAPP_TOKEN_ENCRYPTION_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+    webhook-verify-token: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:dev-whatsapp-verify-token}
+    webhook-public-url: ${WHATSAPP_WEBHOOK_PUBLIC_URL:http://localhost:6060/api/webhooks/whatsapp}
+    dispatch-enabled: ${WHATSAPP_DISPATCH_ENABLED:false}
+    webhook-processing-enabled: true

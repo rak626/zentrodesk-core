@@ -28,6 +28,7 @@ public class ConversationMessageService {
     private final ConversationMessageRepository repository;
     private final CurrentTenant currentTenant;
     private final CustomerRepository customerRepository;
+    private final CustomerConversationService conversationService;
 
     @Transactional(readOnly = true)
     public PageResponse<ConversationMessageResponse> findAll(int page, int size, String sort, String direction, String phone, UUID customerId, ConversationMessageStatus status) {
@@ -49,8 +50,15 @@ public class ConversationMessageService {
             customerRepository.findByIdAndTenantId(request.customerId(), tenantId)
                     .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
         }
+        var conversation = conversationService.findOrCreate(
+                tenantId,
+                request.customerId(),
+                request.phone(),
+                null
+        );
         ConversationMessage message = ConversationMessage.builder()
                 .tenantId(tenantId)
+                .conversationId(conversation.getId())
                 .customerId(request.customerId())
                 .phone(request.phone().trim())
                 .direction(request.direction())
@@ -76,9 +84,21 @@ public class ConversationMessageService {
     }
 
     private ConversationMessageResponse toResponse(ConversationMessage message) {
-        return new ConversationMessageResponse(message.getId(), message.getCustomerId(), message.getPhone(), message.getDirection(),
-                message.getMessage(), message.getProviderMessageId(), message.getStatus(), message.isActive(),
-                message.getCreatedAt(), message.getUpdatedAt());
+        return new ConversationMessageResponse(
+                message.getId(),
+                message.getConversationId(),
+                message.getCustomerId(),
+                message.getSentByUserId(),
+                message.getPhone(),
+                message.getDirection(),
+                message.getMessage(),
+                message.getMessageType(),
+                message.getProviderMessageId(),
+                message.getStatus(),
+                message.isActive(),
+                message.getCreatedAt(),
+                message.getUpdatedAt()
+        );
     }
 
     private String trimToNull(String value) {

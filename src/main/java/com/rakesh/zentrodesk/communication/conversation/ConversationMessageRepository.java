@@ -4,9 +4,17 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface ConversationMessageRepository extends JpaRepository<ConversationMessage, UUID>, JpaSpecificationExecutor<ConversationMessage> {
 
     Optional<ConversationMessage> findByIdAndTenantId(UUID id, UUID tenantId);
+
+    Optional<ConversationMessage> findByTenantIdAndProviderMessageId(UUID tenantId, String providerMessageId);
+
+    List<ConversationMessage> findAllByConversationIdAndTenantIdOrderByCreatedAtAsc(
+            UUID conversationId,
+            UUID tenantId
+    );
 }

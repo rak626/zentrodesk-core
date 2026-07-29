@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -99,5 +100,12 @@ public class QuotationController {
                 quotationService.updateStatus(id, request),
                 servletRequest.getRequestURI()
         );
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + TenantPermissions.QUOTATION_DELETE + "')")
+    public ApiResponse<Void> disable(@PathVariable UUID id, HttpServletRequest servletRequest) {
+        quotationService.disable(id);
+        return ApiResponse.success("Quotation disabled successfully", null, servletRequest.getRequestURI());
     }
 }

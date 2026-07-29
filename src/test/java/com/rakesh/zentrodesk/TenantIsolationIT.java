@@ -5,6 +5,13 @@ import com.rakesh.zentrodesk.analytics.dashboard.DashboardSummaryResponse;
 import com.rakesh.zentrodesk.common.exception.ResourceNotFoundException;
 import com.rakesh.zentrodesk.communication.conversation.ConversationMessageDirection;
 import com.rakesh.zentrodesk.communication.conversation.ConversationMessageStatus;
+import com.rakesh.zentrodesk.communication.conversation.ConversationAssignmentRole;
+import com.rakesh.zentrodesk.communication.conversation.CustomerConversationRepository;
+import com.rakesh.zentrodesk.communication.conversation.api.ConversationAssignmentRequest;
+import com.rakesh.zentrodesk.communication.conversation.api.ConversationSendRequest;
+import com.rakesh.zentrodesk.communication.conversation.api.CustomerConversationCreateRequest;
+import com.rakesh.zentrodesk.communication.conversation.api.CustomerConversationResponse;
+import com.rakesh.zentrodesk.communication.conversation.api.CustomerConversationService;
 import com.rakesh.zentrodesk.communication.conversation.api.ConversationMessageRequest;
 import com.rakesh.zentrodesk.communication.conversation.api.ConversationMessageService;
 import com.rakesh.zentrodesk.communication.conversation.api.ConversationStatusRequest;
@@ -45,8 +52,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -77,6 +86,12 @@ class TenantIsolationIT extends PostgreSqlIntegrationTest {
 
     @Autowired
     private ConversationMessageService conversationMessageService;
+
+    @Autowired
+    private CustomerConversationService customerConversationService;
+
+    @Autowired
+    private CustomerConversationRepository customerConversationRepository;
 
     @Autowired
     private PropertyService propertyService;
@@ -207,6 +222,74 @@ class TenantIsolationIT extends PostgreSqlIntegrationTest {
         );
 
         assertThrows(ResourceNotFoundException.class, () -> conversationMessageService.create(request));
+    }
+
+    @Test
+    void tenantEmployeesShareOneConfiguredSenderAndSupportMultipleAssignees() {
+        Fixture fixture = createFixture();
+        authenticate(fixture.tenantA(), fixture.userA());
+        jdbcClient.sql("""
+                        insert into zentro_desk.whatsapp_configurations (
+                            id, created_at, updated_at, tenant_id, waba_id, business_id,
+                            phone_number_id, display_phone_number, verified_name,
+                            connection_method, access_token_ciphertext, funding_status,
+                            token_healthy, status, last_validated_at, last_healthy_at, version
+                        ) values (
+                            :id, now(), now(), :tenantId, 'waba-tenant-a', 'business-tenant-a',
+                            'phone-number-tenant-a', '+91 90000 00000', 'Tenant A',
+                            'MANUAL', 'encrypted-test-token', 'FUNDED',
+                            true, 'CONNECTED', now(), now(), 0
+                        )
+                        """)
+                .param("id", UUID.randomUUID())
+                .param("tenantId", fixture.tenantA())
+                .update();
+        CustomerConversationResponse conversation = customerConversationService.create(
+                new CustomerConversationCreateRequest(null, "+91 98888 88888", "WhatsApp Customer")
+        );
+        var persisted = customerConversationRepository.findByIdAndTenantId(
+                conversation.id(),
+                fixture.tenantA()
+        ).orElseThrow();
+        persisted.setLastInboundAt(Instant.now());
+        customerConversationRepository.save(persisted);
+
+        customerConversationService.assign(
+                conversation.id(),
+                new ConversationAssignmentRequest(fixture.userA(), Set.of(fixture.otherUserA()))
+        );
+        customerConversationService.send(conversation.id(), new ConversationSendRequest("Owner reply"));
+
+        authenticate(fixture.tenantA(), fixture.otherUserA());
+        customerConversationService.send(conversation.id(), new ConversationSendRequest("Team reply"));
+
+        assertEquals(1, jdbcClient.sql("""
+                        select count(*) from zentro_desk.whatsapp_configurations
+                        where tenant_id = :tenantId and phone_number_id = 'phone-number-tenant-a'
+                        """)
+                .param("tenantId", fixture.tenantA())
+                .query(Integer.class)
+                .single());
+        assertEquals(2, customerConversationService.messages(conversation.id()).stream()
+                .filter(message -> message.direction() == ConversationMessageDirection.OUTBOUND)
+                .map(message -> message.sentByUserId())
+                .distinct()
+                .count());
+        CustomerConversationResponse assigned = customerConversationService.findAll(
+                        0, 20, "lastMessageAt", "DESC", null, null
+                ).content().stream()
+                .filter(item -> item.id().equals(conversation.id()))
+                .findFirst()
+                .orElseThrow();
+        assertTrue(assigned.assignments().stream().anyMatch(item ->
+                item.userId().equals(fixture.userA()) && item.role() == ConversationAssignmentRole.PRIMARY));
+        assertTrue(assigned.assignments().stream().anyMatch(item ->
+                item.userId().equals(fixture.otherUserA())
+                        && item.role() == ConversationAssignmentRole.COLLABORATOR));
+
+        authenticate(fixture.tenantB(), fixture.userB());
+        assertThrows(ResourceNotFoundException.class, () ->
+                customerConversationService.messages(conversation.id()));
     }
 
     @Test
@@ -498,14 +581,28 @@ class TenantIsolationIT extends PostgreSqlIntegrationTest {
     }
 
     private void insertConversation(UUID id, UUID tenantId, UUID customerId) {
+        UUID conversationId = UUID.randomUUID();
+        jdbcClient.sql("""
+                        insert into zentro_desk.customer_conversations
+                            (id, created_at, updated_at, tenant_id, customer_id, phone, normalized_phone,
+                             status, unread_count, active, version)
+                        values (:id, current_timestamp, current_timestamp, :tenantId, :customerId,
+                                '9000000000', '9000000000', 'OPEN', 0, true, 0)
+                        """)
+                .param("id", conversationId)
+                .param("tenantId", tenantId)
+                .param("customerId", customerId)
+                .update();
         jdbcClient.sql("""
                         insert into zentro_desk.conversation_messages
-                            (id, created_at, updated_at, tenant_id, customer_id, phone, direction, message, status, active)
-                        values (:id, current_timestamp, current_timestamp, :tenantId, :customerId, '9000000000',
-                                'OUTBOUND', 'Test', 'PENDING', true)
+                            (id, created_at, updated_at, tenant_id, conversation_id, customer_id, phone,
+                             direction, message, message_type, status, active)
+                        values (:id, current_timestamp, current_timestamp, :tenantId, :conversationId,
+                                :customerId, '9000000000', 'OUTBOUND', 'Test', 'TEXT', 'PENDING', true)
                         """)
                 .param("id", id)
                 .param("tenantId", tenantId)
+                .param("conversationId", conversationId)
                 .param("customerId", customerId)
                 .update();
     }

@@ -18,6 +18,16 @@ app:
     delivery-url: ${EMAIL_DELIVERY_URL}
     delivery-api-key: ${EMAIL_DELIVERY_API_KEY}
     dispatch-enabled: true
+  whatsapp:
+    app-id: ${META_APP_ID}
+    app-secret: ${META_APP_SECRET}
+    embedded-signup-config-id: ${META_EMBEDDED_SIGNUP_CONFIG_ID}
+    graph-version: ${META_GRAPH_API_VERSION}
+    token-encryption-key: ${WHATSAPP_TOKEN_ENCRYPTION_KEY}
+    webhook-verify-token: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN}
+    webhook-public-url: ${WHATSAPP_WEBHOOK_PUBLIC_URL}
+    dispatch-enabled: ${WHATSAPP_DISPATCH_ENABLED:false}
+    webhook-processing-enabled: true
 
 logging:
   level:
