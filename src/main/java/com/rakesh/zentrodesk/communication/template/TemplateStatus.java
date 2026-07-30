@@ -4,5 +4,9 @@ public enum TemplateStatus {
 
     ACTIVE,
 
-    INACTIVE
+    INACTIVE,
+
+    DRAFT,
+
+    ARCHIVED
 }

@@ -47,6 +47,15 @@ public class CustomerConversation extends BaseEntity {
     @Column(name = "customer_id")
     private UUID customerId;
 
+    @Column(name = "lead_id")
+    private UUID leadId;
+
+    @Column(name = "quotation_id")
+    private UUID quotationId;
+
+    @Column(name = "booking_id")
+    private UUID bookingId;
+
     @Column(nullable = false, length = 32)
     private String phone;
 

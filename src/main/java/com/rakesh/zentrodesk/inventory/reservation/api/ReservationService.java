@@ -17,6 +17,7 @@ import com.rakesh.zentrodesk.inventory.room.Room;
 import com.rakesh.zentrodesk.inventory.room.RoomRepository;
 import com.rakesh.zentrodesk.inventory.room.RoomStatus;
 import com.rakesh.zentrodesk.operations.booking.Booking;
+import com.rakesh.zentrodesk.operations.booking.BookingResourcesRequestedEvent;
 import com.rakesh.zentrodesk.operations.booking.BookingRepository;
 import com.rakesh.zentrodesk.operations.booking.BookingStatus;
 import com.rakesh.zentrodesk.platform.audit.AuditMutation;
@@ -26,6 +27,7 @@ import com.rakesh.zentrodesk.platform.tenant.TenantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -143,6 +145,55 @@ public class ReservationService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public List<AvailableRoomResponse> availableRooms(
+            LocalDate checkIn,
+            LocalDate checkOut,
+            UUID propertyId,
+            Integer minCapacity
+    ) {
+        validateDates(checkIn, checkOut, true);
+        UUID tenantId = currentTenant.id();
+        if (propertyId != null) {
+            getProperty(propertyId);
+        }
+        if (minCapacity != null && minCapacity < 1) {
+            throw new BadRequestException("Minimum capacity must be at least one");
+        }
+        Specification<Room> specification = Specification
+                .where(SearchSpecificationBuilder.<Room>uuidEquals("property.tenantId", tenantId))
+                .and(SearchSpecificationBuilder.uuidEquals("property.id", propertyId))
+                .and(SearchSpecificationBuilder.booleanEquals("active", true))
+                .and((root, query, cb) -> cb.isTrue(root.get("property").get("active")))
+                .and((root, query, cb) -> cb.equal(root.get("status"), RoomStatus.AVAILABLE))
+                .and((root, query, cb) -> cb.equal(root.get("property").get("status"), PropertyStatus.ACTIVE))
+                .and((root, query, cb) -> minCapacity == null
+                        ? cb.conjunction()
+                        : cb.greaterThanOrEqualTo(root.get("capacity"), minCapacity));
+        return roomRepository.findAll(
+                        specification,
+                        Sort.by(Sort.Order.asc("property.name"), Sort.Order.asc("name"))
+                ).stream()
+                .filter(room -> !reservationRepository.existsActiveOverlap(
+                        room.getId(),
+                        checkIn,
+                        checkOut,
+                        null,
+                        OCCUPYING_STATUSES
+                ))
+                .map(room -> new AvailableRoomResponse(
+                        room.getId(),
+                        room.getProperty().getId(),
+                        room.getProperty().getName(),
+                        room.getName(),
+                        room.getType(),
+                        room.getCapacity(),
+                        room.getBasePrice(),
+                        room.getAmenitiesSummary()
+                ))
+                .toList();
+    }
+
     @Transactional
     @AuditMutation(entityType = "RESERVATION", action = "CREATE")
     public ReservationResponse create(ReservationRequest request) {
@@ -171,6 +222,52 @@ public class ReservationService {
                 .active(true)
                 .build();
         return save(reservation);
+    }
+
+    @EventListener
+    public void reserveQuotationRooms(BookingResourcesRequestedEvent event) {
+        if (event.rooms().isEmpty()) {
+            return;
+        }
+        Booking booking = bookingRepository.findByIdAndTenantId(event.bookingId(), event.tenantId())
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+        event.rooms().stream()
+                .collect(Collectors.groupingBy(BookingResourcesRequestedEvent.RoomBlock::quotationItemId))
+                .values()
+                .forEach(blocks -> {
+                    if (blocks.getFirst().capacityOverridden()) {
+                        return;
+                    }
+                    int capacity = blocks.stream()
+                            .mapToInt(block -> roomRepository
+                                    .findByIdAndPropertyTenantId(block.roomId(), event.tenantId())
+                                    .orElseThrow(() -> new ResourceNotFoundException("Selected room not found"))
+                                    .getCapacity())
+                            .sum();
+                    if (capacity < event.adults()) {
+                        throw new ConflictException(
+                                "Selected rooms hold " + capacity + " adults; " + event.adults()
+                                        + " are required. Enable the capacity override to continue."
+                        );
+                    }
+                });
+        event.rooms().forEach(block -> {
+            Room room = roomRepository.findByIdAndPropertyTenantId(block.roomId(), event.tenantId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Selected room not found"));
+            validateDates(block.checkIn(), block.checkOut(), true);
+            validateBooking(booking, block.checkIn(), block.checkOut());
+            validateRoom(room.getProperty(), room);
+            ensureAvailable(room.getId(), block.checkIn(), block.checkOut(), null);
+            save(Reservation.builder()
+                    .bookingId(booking.getId())
+                    .property(room.getProperty())
+                    .room(room)
+                    .checkIn(block.checkIn())
+                    .checkOut(block.checkOut())
+                    .status(ReservationStatus.RESERVED)
+                    .active(true)
+                    .build());
+        });
     }
 
     @Transactional

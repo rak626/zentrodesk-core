@@ -5,6 +5,9 @@ import com.rakesh.zentrodesk.common.observability.SensitiveValueSanitizer;
 import com.rakesh.zentrodesk.communication.conversation.ConversationMessage;
 import com.rakesh.zentrodesk.communication.conversation.ConversationMessageRepository;
 import com.rakesh.zentrodesk.communication.conversation.ConversationMessageStatus;
+import com.rakesh.zentrodesk.communication.conversation.ConversationMessageType;
+import com.rakesh.zentrodesk.communication.quotation.QuotationDocument;
+import com.rakesh.zentrodesk.communication.quotation.QuotationDocumentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -24,6 +27,7 @@ public class WhatsAppMessageOutboxProcessor {
     private final WhatsAppConfigurationRepository configurationRepository;
     private final ConversationMessageRepository messageRepository;
     private final WhatsAppCredentialAccess credentialAccess;
+    private final QuotationDocumentService documentService;
     private final PlatformTransactionManager transactionManager;
     private final ApplicationMetrics metrics;
 
@@ -83,22 +87,46 @@ public class WhatsAppMessageOutboxProcessor {
             if (!outbox.getSenderPhoneNumberId().equals(message.getBusinessPhoneNumberId())) {
                 throw new WhatsAppDeliveryException("Outbound sender snapshot does not match the message", false);
             }
-            WhatsAppDeliveryResult result = credentialAccess.sendText(
-                    outbox.getSenderPhoneNumberId(),
-                    credentialAccess.decrypt(configuration.getAccessTokenCiphertext()),
-                    message.getPhone(),
-                    message.getMessage(),
-                    message.getId()
-            );
+            String accessToken = credentialAccess.decrypt(configuration.getAccessTokenCiphertext());
+            WhatsAppDeliveryResult result = message.getMessageType() == ConversationMessageType.DOCUMENT
+                    ? sendDocument(outbox, message, accessToken)
+                    : credentialAccess.sendText(
+                            outbox.getSenderPhoneNumberId(),
+                            accessToken,
+                            message.getPhone(),
+                            message.getMessage(),
+                            message.getId()
+                    );
             message.setProviderMessageId(result.providerMessageId());
             message.setStatus(ConversationMessageStatus.SENT);
             outbox.setStatus(WhatsAppOutboxStatus.SENT);
             outbox.setDeliveredAt(Instant.now());
             outbox.setLastError(null);
+            if (message.getDocumentId() != null) {
+                documentService.markDeliverySent(message.getDocumentId(), result.providerMessageId());
+            }
             metrics.whatsAppDelivery("SENT");
         } catch (RuntimeException exception) {
             failOrRetry(outbox, exception);
         }
+    }
+
+    private WhatsAppDeliveryResult sendDocument(
+            WhatsAppMessageOutbox outbox,
+            ConversationMessage message,
+            String accessToken
+    ) {
+        QuotationDocument document = documentService.requireForDelivery(message.getDocumentId());
+        return credentialAccess.sendDocumentTemplate(
+                outbox.getSenderPhoneNumberId(),
+                accessToken,
+                message.getPhone(),
+                document.getContent(),
+                message.getDocumentFileName(),
+                message.getTemplateName(),
+                message.getTemplateLanguage(),
+                message.getId()
+        );
     }
 
     private void failOrRetry(WhatsAppMessageOutbox outbox, RuntimeException exception) {
@@ -112,7 +140,12 @@ public class WhatsAppMessageOutboxProcessor {
         if (!retryable || attempts >= maxAttempts) {
             outbox.setStatus(WhatsAppOutboxStatus.FAILED);
             messageRepository.findByIdAndTenantId(outbox.getMessageId(), outbox.getTenantId())
-                    .ifPresent(message -> message.setStatus(ConversationMessageStatus.FAILED));
+                    .ifPresent(message -> {
+                        message.setStatus(ConversationMessageStatus.FAILED);
+                        if (message.getDocumentId() != null) {
+                            documentService.markDeliveryFailed(message.getDocumentId(), outbox.getLastError());
+                        }
+                    });
             metrics.whatsAppDelivery("FAILED");
             return;
         }

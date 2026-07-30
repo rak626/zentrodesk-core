@@ -1,6 +1,7 @@
 package com.rakesh.zentrodesk.sales.lead.api;
 
 import com.rakesh.zentrodesk.common.api.PageResponse;
+import com.rakesh.zentrodesk.common.ownership.OwnershipChangedEvent;
 import com.rakesh.zentrodesk.common.exception.ConflictException;
 import com.rakesh.zentrodesk.common.exception.BadRequestException;
 import com.rakesh.zentrodesk.common.exception.ResourceNotFoundException;
@@ -17,11 +18,13 @@ import com.rakesh.zentrodesk.sales.lead.LeadStatus;
 import com.rakesh.zentrodesk.sales.customer.ContactNormalizer;
 import com.rakesh.zentrodesk.sales.customer.SalesReferenceService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Set;
@@ -48,6 +51,7 @@ public class LeadService {
     private final UserRepository userRepository;
     private final SalesReferenceService salesReferenceService;
     private final CurrentTenant currentTenant;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public PageResponse<LeadResponse> findAll(int page, int size, String sort, String direction, String search,
@@ -90,11 +94,11 @@ public class LeadService {
     @AuditMutation(entityType = "LEAD", action = "CREATE")
     public LeadResponse create(LeadRequest request) {
         UUID tenantId = currentTenant.id();
-        validateAssignedUser(request.assignedUserId(), tenantId);
         validateCustomer(request.customerId(), tenantId);
+        UUID ownerId = currentTenant.userId();
         Lead lead = Lead.builder()
                 .tenantId(tenantId)
-                .assignedUserId(request.assignedUserId())
+                .assignedUserId(ownerId)
                 .customerId(request.customerId())
                 .name(request.name().trim())
                 .phone(trimToNull(request.phone()))
@@ -112,6 +116,7 @@ public class LeadService {
                 .build();
         Lead saved = leadRepository.save(lead);
         recordActivity(saved, "CREATED", "Lead created");
+        publishOwnership(saved, null, ownerId, "LEAD_CREATED");
         return toResponse(saved);
     }
 
@@ -120,9 +125,7 @@ public class LeadService {
     public LeadResponse update(UUID id, LeadRequest request) {
         Lead lead = getLead(id);
         assertVersion(lead.getVersion(), request.version());
-        validateAssignedUser(request.assignedUserId(), lead.getTenantId());
         validateCustomer(request.customerId(), lead.getTenantId());
-        lead.setAssignedUserId(request.assignedUserId());
         lead.setCustomerId(request.customerId());
         lead.setName(request.name().trim());
         lead.setPhone(trimToNull(request.phone()));
@@ -166,8 +169,8 @@ public class LeadService {
         Lead lead = getLead(id);
         assertVersion(lead.getVersion(), request.version());
         validateAssignedUser(request.assignedUserId(), lead.getTenantId());
-        lead.setAssignedUserId(request.assignedUserId());
-        recordActivity(lead, "ASSIGNED", "Lead assignment changed");
+        UUID previousOwnerId = lead.getAssignedUserId();
+        publishOwnership(lead, previousOwnerId, request.assignedUserId(), "OWNER_REASSIGNED");
         return toResponse(lead);
     }
 
@@ -217,6 +220,24 @@ public class LeadService {
                 .activityType(type)
                 .summary(summary)
                 .build());
+    }
+
+    private void publishOwnership(Lead lead, UUID previousOwnerId, UUID ownerId, String reason) {
+        eventPublisher.publishEvent(new OwnershipChangedEvent(
+                lead.getTenantId(),
+                previousOwnerId,
+                ownerId,
+                currentTenant.userId(),
+                reason,
+                "LEAD",
+                lead.getId(),
+                lead.getId(),
+                null,
+                null,
+                null,
+                lead.getCustomerId(),
+                Instant.now()
+        ));
     }
 
     private LeadResponse toResponse(Lead lead) {

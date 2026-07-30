@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
@@ -15,8 +16,8 @@ import java.util.UUID;
 public record QuotationRequest(
         UUID leadId,
         UUID customerId,
-        LocalDate travelStart,
-        LocalDate travelEnd,
+        @NotNull LocalDate travelStart,
+        @NotNull LocalDate travelEnd,
         @Min(0) Integer adults,
         @Min(0) Integer children,
         @DecimalMin("0.00") BigDecimal discount,

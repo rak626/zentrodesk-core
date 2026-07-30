@@ -22,6 +22,8 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
 
 @Entity
 @Getter
@@ -50,6 +52,10 @@ public class QuotationItem extends BaseEntity {
     @Column(nullable = false, length = 30)
     private QuotationItemType type;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "pricing_basis", nullable = false, length = 30)
+    private QuotationPricingBasis pricingBasis;
+
     @NotBlank
     @Size(max = 200)
     @Column(nullable = false, length = 200)
@@ -65,6 +71,45 @@ public class QuotationItem extends BaseEntity {
     @NotNull
     @Column(name = "unit_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal unitPrice;
+
+    @Column(name = "chargeable_people")
+    private Integer chargeablePeople;
+
+    @Default
+    @Column(name = "chargeable_people_overridden", nullable = false)
+    private boolean chargeablePeopleOverridden = false;
+
+    @Column(name = "vehicle_capacity")
+    private Integer vehicleCapacity;
+
+    @Column(name = "vehicle_count")
+    private Integer vehicleCount;
+
+    @Default
+    @Column(name = "vehicle_count_overridden", nullable = false)
+    private boolean vehicleCountOverridden = false;
+
+    @Column(name = "check_in")
+    private LocalDate checkIn;
+
+    @Column(name = "check_out")
+    private LocalDate checkOut;
+
+    @Column(name = "starts_at")
+    private Instant startsAt;
+
+    @Column(name = "ends_at")
+    private Instant endsAt;
+
+    @Column(name = "pickup_location", length = 500)
+    private String pickupLocation;
+
+    @Column(name = "dropoff_location", length = 500)
+    private String dropoffLocation;
+
+    @Default
+    @Column(name = "capacity_overridden", nullable = false)
+    private boolean capacityOverridden = false;
 
     @NotNull
     @Column(nullable = false, precision = 12, scale = 2)

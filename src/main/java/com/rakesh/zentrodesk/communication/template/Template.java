@@ -18,6 +18,7 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 import java.util.UUID;
+import java.time.Instant;
 
 @Entity
 @Getter
@@ -50,6 +51,22 @@ public class Template extends BaseEntity {
 
     @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
+
+    @Column(name = "style_content", columnDefinition = "TEXT")
+    private String styleContent;
+
+    @Column(name = "whatsapp_template_name", length = 512)
+    private String whatsAppTemplateName;
+
+    @Column(name = "whatsapp_template_language", length = 10)
+    private String whatsAppTemplateLanguage;
+
+    @Default
+    @Column(name = "template_version", nullable = false)
+    private int templateVersion = 1;
+
+    @Column(name = "published_at")
+    private Instant publishedAt;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

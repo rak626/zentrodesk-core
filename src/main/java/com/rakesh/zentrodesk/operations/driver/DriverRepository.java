@@ -15,5 +15,9 @@ public interface DriverRepository extends JpaRepository<Driver, UUID>, JpaSpecif
 
     Optional<Driver> findByIdAndTenantId(UUID id, UUID tenantId);
 
+    Optional<Driver> findByTenantIdAndVehicleIdAndActiveTrue(UUID tenantId, UUID vehicleId);
+
+    boolean existsByTenantIdAndVehicleIdAndActiveTrueAndIdNot(UUID tenantId, UUID vehicleId, UUID id);
+
     List<Driver> findByTenantIdAndActiveTrueOrderByNameAsc(UUID tenantId);
 }

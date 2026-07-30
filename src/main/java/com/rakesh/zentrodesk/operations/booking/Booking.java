@@ -60,6 +60,12 @@ public class Booking extends BaseEntity {
     @Column(name = "quotation_id")
     private UUID quotationId;
 
+    @Column(name = "lead_id")
+    private UUID leadId;
+
+    @Column(name = "assigned_user_id")
+    private UUID assignedUserId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "driver_id")
     private Driver driver;

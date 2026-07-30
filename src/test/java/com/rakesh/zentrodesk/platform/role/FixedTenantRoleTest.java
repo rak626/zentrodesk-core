@@ -46,10 +46,11 @@ class FixedTenantRoleTest {
         assertAllowed(FixedTenantRole.OWNER, TenantPermissions.TEAM_DELETE);
         assertAllowed(FixedTenantRole.OWNER, TenantPermissions.WHATSAPP_CONFIGURE);
         assertAllowed(FixedTenantRole.MANAGER, TenantPermissions.PROPERTY_UPDATE);
-        assertAllowed(FixedTenantRole.MANAGER, TenantPermissions.CONVERSATION_ASSIGN);
+        assertForbidden(FixedTenantRole.MANAGER, TenantPermissions.CONVERSATION_ASSIGN);
         assertAllowed(FixedTenantRole.MANAGER, TenantPermissions.AUDIT_READ);
         assertForbidden(FixedTenantRole.MANAGER, TenantPermissions.TEAM_DELETE);
         assertAllowed(FixedTenantRole.SALES, TenantPermissions.LEAD_CREATE);
+        assertForbidden(FixedTenantRole.SALES, TenantPermissions.LEAD_ASSIGN);
         assertForbidden(FixedTenantRole.SALES, TenantPermissions.PROPERTY_CREATE);
         assertForbidden(FixedTenantRole.SALES, TenantPermissions.AUDIT_READ);
         assertAllowed(FixedTenantRole.OPERATIONS, TenantPermissions.RESERVATION_UPDATE);

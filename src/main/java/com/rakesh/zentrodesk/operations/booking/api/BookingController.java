@@ -78,6 +78,20 @@ public class BookingController {
         return ApiResponse.success("Booking status updated successfully", bookingService.updateStatus(id, request), servletRequest.getRequestURI());
     }
 
+    @PatchMapping("/bookings/{id}/assignee")
+    @PreAuthorize("hasRole('OWNER')")
+    public ApiResponse<BookingResponse> assign(
+            @PathVariable UUID id,
+            @Valid @RequestBody BookingAssignRequest request,
+            HttpServletRequest servletRequest
+    ) {
+        return ApiResponse.success(
+                "Booking assigned successfully",
+                bookingService.assign(id, request),
+                servletRequest.getRequestURI()
+        );
+    }
+
     @DeleteMapping("/bookings/{id}")
     @PreAuthorize("hasAuthority('" + TenantPermissions.BOOKING_DELETE + "')")
     public ApiResponse<Void> delete(@PathVariable UUID id, HttpServletRequest servletRequest) {

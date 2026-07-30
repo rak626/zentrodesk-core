@@ -5,9 +5,7 @@ import com.rakesh.zentrodesk.analytics.dashboard.DashboardSummaryResponse;
 import com.rakesh.zentrodesk.common.exception.ResourceNotFoundException;
 import com.rakesh.zentrodesk.communication.conversation.ConversationMessageDirection;
 import com.rakesh.zentrodesk.communication.conversation.ConversationMessageStatus;
-import com.rakesh.zentrodesk.communication.conversation.ConversationAssignmentRole;
 import com.rakesh.zentrodesk.communication.conversation.CustomerConversationRepository;
-import com.rakesh.zentrodesk.communication.conversation.api.ConversationAssignmentRequest;
 import com.rakesh.zentrodesk.communication.conversation.api.ConversationSendRequest;
 import com.rakesh.zentrodesk.communication.conversation.api.CustomerConversationCreateRequest;
 import com.rakesh.zentrodesk.communication.conversation.api.CustomerConversationResponse;
@@ -55,7 +53,6 @@ import java.time.LocalDate;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -225,7 +222,7 @@ class TenantIsolationIT extends PostgreSqlIntegrationTest {
     }
 
     @Test
-    void tenantEmployeesShareOneConfiguredSenderAndSupportMultipleAssignees() {
+    void tenantEmployeesShareOneConfiguredSenderAndCustomerOnlyChatRemainsUnassigned() {
         Fixture fixture = createFixture();
         authenticate(fixture.tenantA(), fixture.userA());
         jdbcClient.sql("""
@@ -254,10 +251,6 @@ class TenantIsolationIT extends PostgreSqlIntegrationTest {
         persisted.setLastInboundAt(Instant.now());
         customerConversationRepository.save(persisted);
 
-        customerConversationService.assign(
-                conversation.id(),
-                new ConversationAssignmentRequest(fixture.userA(), Set.of(fixture.otherUserA()))
-        );
         customerConversationService.send(conversation.id(), new ConversationSendRequest("Owner reply"));
 
         authenticate(fixture.tenantA(), fixture.otherUserA());
@@ -281,11 +274,7 @@ class TenantIsolationIT extends PostgreSqlIntegrationTest {
                 .filter(item -> item.id().equals(conversation.id()))
                 .findFirst()
                 .orElseThrow();
-        assertTrue(assigned.assignments().stream().anyMatch(item ->
-                item.userId().equals(fixture.userA()) && item.role() == ConversationAssignmentRole.PRIMARY));
-        assertTrue(assigned.assignments().stream().anyMatch(item ->
-                item.userId().equals(fixture.otherUserA())
-                        && item.role() == ConversationAssignmentRole.COLLABORATOR));
+        assertTrue(assigned.assignments().isEmpty());
 
         authenticate(fixture.tenantB(), fixture.userB());
         assertThrows(ResourceNotFoundException.class, () ->

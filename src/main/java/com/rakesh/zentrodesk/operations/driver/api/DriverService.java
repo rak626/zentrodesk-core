@@ -106,6 +106,7 @@ public class DriverService {
     @AuditMutation(entityType = "DRIVER", action = "CREATE")
     public DriverResponse create(DriverRequest request) {
         Vehicle vehicle = getVehicle(request.vehicleId());
+        ensureVehicleUnassigned(vehicle, null);
         DriverStatus status = request.status() == null ? DriverStatus.AVAILABLE : request.status();
         if (status == DriverStatus.ON_TRIP) {
             throw new BadRequestException("ON_TRIP is controlled by confirmed assignments");
@@ -134,6 +135,7 @@ public class DriverService {
         Driver driver = getDriver(id);
         assertVersion(driver.getVersion(), request.version());
         Vehicle vehicle = getVehicle(request.vehicleId());
+        ensureVehicleUnassigned(vehicle, driver.getId());
         if (Boolean.FALSE.equals(request.active())) {
             ensureNoActiveAssignments(driver);
         }
@@ -215,6 +217,25 @@ public class DriverService {
             throw new ConflictException("Vehicle is disabled");
         }
         return vehicle;
+    }
+
+    private void ensureVehicleUnassigned(Vehicle vehicle, UUID driverId) {
+        if (vehicle == null) {
+            return;
+        }
+        boolean assigned = driverId == null
+                ? driverRepository.findByTenantIdAndVehicleIdAndActiveTrue(
+                        currentTenant.id(),
+                        vehicle.getId()
+                ).isPresent()
+                : driverRepository.existsByTenantIdAndVehicleIdAndActiveTrueAndIdNot(
+                        currentTenant.id(),
+                        vehicle.getId(),
+                        driverId
+                );
+        if (assigned) {
+            throw new ConflictException("Vehicle already has a fixed driver");
+        }
     }
 
     private void recordStatus(

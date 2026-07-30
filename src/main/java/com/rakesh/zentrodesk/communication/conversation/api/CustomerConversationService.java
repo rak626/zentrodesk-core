@@ -1,6 +1,7 @@
 package com.rakesh.zentrodesk.communication.conversation.api;
 
 import com.rakesh.zentrodesk.common.api.PageResponse;
+import com.rakesh.zentrodesk.common.ownership.OwnershipChangedEvent;
 import com.rakesh.zentrodesk.common.exception.BadRequestException;
 import com.rakesh.zentrodesk.common.exception.ResourceNotFoundException;
 import com.rakesh.zentrodesk.common.pagination.PaginationUtils;
@@ -29,9 +30,12 @@ import com.rakesh.zentrodesk.platform.user.UserRepository;
 import com.rakesh.zentrodesk.sales.customer.ContactNormalizer;
 import com.rakesh.zentrodesk.sales.customer.Customer;
 import com.rakesh.zentrodesk.sales.customer.CustomerRepository;
+import com.rakesh.zentrodesk.sales.lead.Lead;
+import com.rakesh.zentrodesk.sales.lead.LeadRepository;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -42,7 +46,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,15 +58,16 @@ public class CustomerConversationService {
     private static final Set<String> ALLOWED_SORTS = Set.of(
             "createdAt", "updatedAt", "lastMessageAt", "status", "unreadCount"
     );
-
     private final CustomerConversationRepository conversationRepository;
     private final ConversationMessageRepository messageRepository;
     private final ConversationAssignmentRepository assignmentRepository;
     private final CustomerRepository customerRepository;
+    private final LeadRepository leadRepository;
     private final UserRepository userRepository;
     private final WhatsAppConfigurationRepository configurationRepository;
     private final WhatsAppOutboxAccess outboxAccess;
     private final CurrentTenant currentTenant;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public PageResponse<CustomerConversationResponse> findAll(
@@ -94,32 +98,66 @@ public class CustomerConversationService {
     @AuditMutation(entityType = "CUSTOMER_CONVERSATION", action = "CREATE")
     public CustomerConversationResponse create(CustomerConversationCreateRequest request) {
         UUID tenantId = currentTenant.id();
-        Customer customer = request.customerId() == null
+        Lead lead = request.leadId() == null
                 ? null
-                : customerRepository.findByIdAndTenantId(request.customerId(), tenantId)
+                : leadRepository.findByIdAndTenantId(request.leadId(), tenantId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Lead not found"));
+        UUID customerId = lead != null && lead.getCustomerId() != null
+                ? lead.getCustomerId()
+                : request.customerId();
+        if (lead != null
+                && lead.getCustomerId() != null
+                && request.customerId() != null
+                && !lead.getCustomerId().equals(request.customerId())) {
+            throw new BadRequestException("Selected customer does not match the lead");
+        }
+        Customer customer = customerId == null
+                ? null
+                : customerRepository.findByIdAndTenantId(customerId, tenantId)
                         .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
-        String phone = customer != null ? customer.getPhone() : request.phone();
+        String phone = customer != null
+                ? customer.getPhone()
+                : lead != null ? lead.getPhone() : request.phone();
         String normalizedPhone = ContactNormalizer.phone(phone);
         if (normalizedPhone == null) {
             throw new BadRequestException("A valid customer phone number is required");
         }
-        return conversationRepository.findByTenantIdAndNormalizedPhone(tenantId, normalizedPhone)
-                .map(conversation -> toResponse(
-                        conversation,
-                        assignments(List.of(conversation.getId())).getOrDefault(conversation.getId(), List.of())
-                ))
-                .orElseGet(() -> {
-                    CustomerConversation conversation = CustomerConversation.builder()
-                            .tenantId(tenantId)
-                            .customerId(customer == null ? null : customer.getId())
-                            .phone(phone.trim())
-                            .normalizedPhone(normalizedPhone)
-                            .displayName(customer == null ? trimToNull(request.displayName()) : customer.getName())
-                            .status(CustomerConversationStatus.OPEN)
-                            .active(true)
-                            .build();
-                    return toResponse(conversationRepository.save(conversation), List.of());
-                });
+        CustomerConversation conversation = conversationRepository
+                .findByTenantIdAndNormalizedPhone(tenantId, normalizedPhone)
+                .orElseGet(() -> conversationRepository.save(CustomerConversation.builder()
+                        .tenantId(tenantId)
+                        .phone(phone.trim())
+                        .normalizedPhone(normalizedPhone)
+                        .status(CustomerConversationStatus.OPEN)
+                        .active(true)
+                        .build()));
+        UUID previousOwnerId = primaryOwner(conversation);
+        conversation.setCustomerId(customer == null ? null : customer.getId());
+        conversation.setLeadId(lead == null ? null : lead.getId());
+        conversation.setQuotationId(null);
+        conversation.setBookingId(null);
+        conversation.setDisplayName(customer != null
+                ? customer.getName()
+                : lead != null ? lead.getName() : trimToNull(request.displayName()));
+        if (lead != null) {
+            publishOwnership(
+                    conversation,
+                    previousOwnerId,
+                    lead.getAssignedUserId(),
+                    "CHAT_LINKED_TO_LEAD"
+            );
+        } else if (previousOwnerId != null) {
+            publishOwnership(
+                    conversation,
+                    previousOwnerId,
+                    null,
+                    "CHAT_LINKED_TO_CUSTOMER"
+            );
+        }
+        return toResponse(
+                conversation,
+                assignments(List.of(conversation.getId())).getOrDefault(conversation.getId(), List.of())
+        );
     }
 
     @Transactional(readOnly = true)
@@ -145,7 +183,7 @@ public class CustomerConversationService {
                         || item.getAccessTokenExpiresAt().isAfter(Instant.now()))
                 .orElseThrow(() -> new BadRequestException("Tenant WhatsApp number is not connected"));
         if (!freeformAvailable(conversation, Instant.now())) {
-            throw new BadRequestException("The customer service window is closed; use an approved template");
+            throw new BadRequestException("The customer service window is closed");
         }
         ConversationMessage message = messageRepository.save(ConversationMessage.builder()
                 .tenantId(conversation.getTenantId())
@@ -176,33 +214,27 @@ public class CustomerConversationService {
     @AuditMutation(entityType = "CUSTOMER_CONVERSATION", action = "ASSIGN")
     public CustomerConversationResponse assign(UUID conversationId, ConversationAssignmentRequest request) {
         CustomerConversation conversation = getConversation(conversationId);
-        LinkedHashSet<UUID> userIds = new LinkedHashSet<>(request.collaboratorIds());
-        if (request.primaryAssigneeId() != null) {
-            userIds.add(request.primaryAssigneeId());
+        if (conversation.getLeadId() == null
+                && conversation.getQuotationId() == null
+                && conversation.getBookingId() == null) {
+            throw new BadRequestException("A customer-only conversation remains unassigned");
         }
-        List<User> users = userRepository.findAllById(userIds);
-        if (users.size() != userIds.size() || users.stream().anyMatch(user ->
-                !user.isActive() || !user.getTenant().getId().equals(conversation.getTenantId()))) {
-            throw new BadRequestException("Every assignee must be an active user in this tenant");
-        }
-        assignmentRepository.deleteAllByConversationIdAndTenantId(conversationId, conversation.getTenantId());
-        assignmentRepository.flush();
-        Instant assignedAt = Instant.now();
-        UUID actorId = currentTenant.userId();
-        List<ConversationAssignment> assignments = userIds.stream()
-                .map(userId -> ConversationAssignment.builder()
-                        .conversationId(conversationId)
-                        .tenantId(conversation.getTenantId())
-                        .userId(userId)
-                        .role(userId.equals(request.primaryAssigneeId())
-                                ? ConversationAssignmentRole.PRIMARY
-                                : ConversationAssignmentRole.COLLABORATOR)
-                        .assignedByUserId(actorId)
-                        .assignedAt(assignedAt)
-                        .build())
-                .toList();
-        assignmentRepository.saveAll(assignments);
-        return toResponse(conversation, assignmentResponses(assignments, users));
+        userRepository.findWithTenantRoleAndPermissionsByIdAndTenantId(
+                    request.primaryAssigneeId(),
+                    conversation.getTenantId()
+                )
+                .filter(User::isActive)
+                .orElseThrow(() -> new BadRequestException("Assignee must be an active user in this tenant"));
+        publishOwnership(
+                conversation,
+                primaryOwner(conversation),
+                request.primaryAssigneeId(),
+                "OWNER_REASSIGNED"
+        );
+        return toResponse(
+                conversation,
+                assignments(List.of(conversationId)).getOrDefault(conversationId, List.of())
+        );
     }
 
     @Transactional
@@ -311,6 +343,9 @@ public class CustomerConversationService {
         return new CustomerConversationResponse(
                 conversation.getId(),
                 conversation.getCustomerId(),
+                conversation.getLeadId(),
+                conversation.getQuotationId(),
+                conversation.getBookingId(),
                 conversation.getPhone(),
                 conversation.getDisplayName(),
                 conversation.getStatus(),
@@ -345,6 +380,40 @@ public class CustomerConversationService {
     private boolean freeformAvailable(CustomerConversation conversation, Instant now) {
         return conversation.getLastInboundAt() != null
                 && conversation.getLastInboundAt().plus(24, ChronoUnit.HOURS).isAfter(now);
+    }
+
+    private UUID primaryOwner(CustomerConversation conversation) {
+        return assignmentRepository.findAllByConversationIdAndTenantId(
+                        conversation.getId(),
+                        conversation.getTenantId()
+                ).stream()
+                .filter(assignment -> assignment.getRole() == ConversationAssignmentRole.PRIMARY)
+                .map(ConversationAssignment::getUserId)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private void publishOwnership(
+            CustomerConversation conversation,
+            UUID previousOwnerId,
+            UUID ownerId,
+            String reason
+    ) {
+        eventPublisher.publishEvent(new OwnershipChangedEvent(
+                conversation.getTenantId(),
+                previousOwnerId,
+                ownerId,
+                currentTenant.userId(),
+                reason,
+                "CONVERSATION",
+                conversation.getId(),
+                conversation.getLeadId(),
+                conversation.getQuotationId(),
+                conversation.getBookingId(),
+                conversation.getId(),
+                conversation.getCustomerId(),
+                Instant.now()
+        ));
     }
 
     private String trimToNull(String value) {

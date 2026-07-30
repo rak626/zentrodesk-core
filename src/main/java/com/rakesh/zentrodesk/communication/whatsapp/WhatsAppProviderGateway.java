@@ -28,4 +28,15 @@ interface WhatsAppProviderGateway {
             String message,
             UUID clientReference
     );
+
+    WhatsAppDeliveryResult sendDocumentTemplate(
+            String phoneNumberId,
+            String accessToken,
+            String recipient,
+            byte[] document,
+            String fileName,
+            String templateName,
+            String templateLanguage,
+            UUID clientReference
+    );
 }

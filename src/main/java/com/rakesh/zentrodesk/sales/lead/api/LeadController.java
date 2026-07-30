@@ -90,7 +90,7 @@ public class LeadController {
     }
 
     @PatchMapping("/{id}/assign")
-    @PreAuthorize("hasAuthority('" + TenantPermissions.LEAD_ASSIGN + "')")
+    @PreAuthorize("hasRole('OWNER')")
     public ApiResponse<LeadResponse> assign(@PathVariable UUID id, @Valid @RequestBody LeadAssignRequest request, HttpServletRequest servletRequest) {
         return ApiResponse.success("Lead assigned successfully", leadService.assign(id, request), servletRequest.getRequestURI());
     }

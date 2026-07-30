@@ -36,13 +36,14 @@ import java.util.UUID;
                 @Index(name = "idx_quotation_tenant", columnList = "tenant_id"),
                 @Index(name = "idx_quotation_customer", columnList = "customer_id"),
                 @Index(name = "idx_quotation_lead", columnList = "lead_id"),
+                @Index(name = "idx_quotation_series", columnList = "tenant_id, series_id"),
                 @Index(name = "idx_quotation_number", columnList = "quotation_number"),
                 @Index(name = "idx_quotation_status", columnList = "status")
         },
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uk_quotation_tenant_number",
-                        columnNames = {"tenant_id", "quotation_number"}
+                        name = "uk_quotation_tenant_number_revision",
+                        columnNames = {"tenant_id", "quotation_number", "revision_number"}
                 )
         }
 )
@@ -57,9 +58,27 @@ public class Quotation extends BaseEntity {
     @Column(name = "customer_id")
     private UUID customerId;
 
+    @Column(name = "assigned_user_id")
+    private UUID assignedUserId;
+
     @NotNull
     @Column(name = "quotation_number", nullable = false, length = 30)
     private String quotationNumber;
+
+    @NotNull
+    @Column(name = "series_id", nullable = false)
+    private UUID seriesId;
+
+    @NotNull
+    @Column(name = "revision_number", nullable = false)
+    private Integer revisionNumber;
+
+    @Column(name = "revised_from_id")
+    private UUID revisedFromId;
+
+    @Default
+    @Column(nullable = false)
+    private boolean superseded = false;
 
     @Column(name = "travel_start")
     private LocalDate travelStart;

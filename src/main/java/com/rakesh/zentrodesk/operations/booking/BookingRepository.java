@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface BookingRepository extends JpaRepository<Booking, UUID>, JpaSpecificationExecutor<Booking> {
@@ -22,6 +23,10 @@ public interface BookingRepository extends JpaRepository<Booking, UUID>, JpaSpec
     Optional<Booking> findByTenantIdAndIdempotencyKey(UUID tenantId, String idempotencyKey);
 
     Optional<Booking> findByTenantIdAndQuotationId(UUID tenantId, UUID quotationId);
+
+    List<Booking> findAllByTenantIdAndLeadId(UUID tenantId, UUID leadId);
+
+    List<Booking> findAllByTenantIdAndQuotationId(UUID tenantId, UUID quotationId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select booking from Booking booking where booking.id = :id and booking.tenantId = :tenantId")

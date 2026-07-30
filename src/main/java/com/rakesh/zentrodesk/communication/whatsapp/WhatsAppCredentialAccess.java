@@ -62,4 +62,26 @@ public class WhatsAppCredentialAccess {
     ) {
         return providerGateway.sendText(phoneNumberId, accessToken, recipient, message, clientReference);
     }
+
+    public WhatsAppDeliveryResult sendDocumentTemplate(
+            String phoneNumberId,
+            String accessToken,
+            String recipient,
+            byte[] document,
+            String fileName,
+            String templateName,
+            String templateLanguage,
+            UUID clientReference
+    ) {
+        return providerGateway.sendDocumentTemplate(
+                phoneNumberId,
+                accessToken,
+                recipient,
+                document,
+                fileName,
+                templateName,
+                templateLanguage,
+                clientReference
+        );
+    }
 }

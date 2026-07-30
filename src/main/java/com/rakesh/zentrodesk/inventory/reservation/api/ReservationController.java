@@ -11,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -45,6 +46,21 @@ public class ReservationController {
         return ApiResponse.success(
                 "Availability retrieved successfully",
                 reservationService.availability(date, view, propertyId, minCapacity),
+                servletRequest.getRequestURI()
+        );
+    }
+
+    @GetMapping("/available-rooms")
+    public ApiResponse<List<AvailableRoomResponse>> availableRooms(
+            @RequestParam LocalDate checkIn,
+            @RequestParam LocalDate checkOut,
+            @RequestParam(required = false) UUID propertyId,
+            @RequestParam(required = false) Integer minCapacity,
+            HttpServletRequest servletRequest
+    ) {
+        return ApiResponse.success(
+                "Available rooms retrieved successfully",
+                reservationService.availableRooms(checkIn, checkOut, propertyId, minCapacity),
                 servletRequest.getRequestURI()
         );
     }

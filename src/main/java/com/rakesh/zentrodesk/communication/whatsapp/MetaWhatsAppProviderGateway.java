@@ -180,12 +180,120 @@ class MetaWhatsAppProviderGateway implements WhatsAppProviderGateway {
         }
     }
 
+    @Override
+    public WhatsAppDeliveryResult sendDocumentTemplate(
+            String phoneNumberId,
+            String accessToken,
+            String recipient,
+            byte[] document,
+            String fileName,
+            String templateName,
+            String templateLanguage,
+            UUID clientReference
+    ) {
+        try {
+            String mediaId = uploadDocument(phoneNumberId, accessToken, document, fileName);
+            Map<String, Object> documentParameter = Map.of(
+                    "type", "document",
+                    "document", Map.of("id", mediaId, "filename", fileName)
+            );
+            Map<String, Object> header = Map.of(
+                    "type", "header",
+                    "parameters", List.of(documentParameter)
+            );
+            String body = objectMapper.writeValueAsString(Map.of(
+                    "messaging_product", "whatsapp",
+                    "recipient_type", "individual",
+                    "to", recipient,
+                    "type", "template",
+                    "biz_opaque_callback_data", clientReference.toString(),
+                    "template", Map.of(
+                            "name", templateName,
+                            "language", Map.of("code", templateLanguage),
+                            "components", List.of(header)
+                    )
+            ));
+            JsonNode root = execute("POST", uri(phoneNumberId + "/messages"), accessToken, body);
+            String providerMessageId = root.path("messages").path(0).path("id").asText();
+            if (providerMessageId.isBlank()) {
+                throw new WhatsAppDeliveryException("Meta response did not include a message ID", false);
+            }
+            return new WhatsAppDeliveryResult(providerMessageId);
+        } catch (JacksonException exception) {
+            throw new WhatsAppDeliveryException("Unable to serialize WhatsApp document request", false, exception);
+        }
+    }
+
+    private String uploadDocument(
+            String phoneNumberId,
+            String accessToken,
+            byte[] document,
+            String fileName
+    ) {
+        String boundary = "----ZentroDesk" + UUID.randomUUID().toString().replace("-", "");
+        String safeFileName = fileName.replace("\"", "");
+        byte[] prefix = (
+                "--" + boundary + "\r\n"
+                        + "Content-Disposition: form-data; name=\"messaging_product\"\r\n\r\n"
+                        + "whatsapp\r\n"
+                        + "--" + boundary + "\r\n"
+                        + "Content-Disposition: form-data; name=\"file\"; filename=\"" + safeFileName + "\"\r\n"
+                        + "Content-Type: application/pdf\r\n\r\n"
+        ).getBytes(StandardCharsets.UTF_8);
+        byte[] suffix = ("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8);
+        JsonNode response = executeMultipart(
+                uri(phoneNumberId + "/media"),
+                accessToken,
+                boundary,
+                List.of(prefix, document, suffix)
+        );
+        String mediaId = response.path("id").asText();
+        if (mediaId.isBlank()) {
+            throw new WhatsAppDeliveryException("Meta response did not include a media ID", false);
+        }
+        return mediaId;
+    }
+
     private JsonNode execute(String method, URI uri, String accessToken, String body) {
         return execute(method, uri, accessToken, body, true);
     }
 
     private JsonNode executeWithoutBearer(String method, URI uri, String body) {
         return execute(method, uri, null, body, false);
+    }
+
+    private JsonNode executeMultipart(
+            URI uri,
+            String accessToken,
+            String boundary,
+            List<byte[]> bodyParts
+    ) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder(uri)
+                    .timeout(Duration.ofSeconds(30))
+                    .header("Authorization", "Bearer " + accessToken)
+                    .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                    .POST(HttpRequest.BodyPublishers.ofByteArrays(bodyParts))
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                boolean retryable = response.statusCode() == 429 || response.statusCode() >= 500;
+                throw new WhatsAppDeliveryException(
+                        "Meta WhatsApp media API returned HTTP " + response.statusCode(),
+                        retryable
+                );
+            }
+            return objectMapper.readTree(response.body());
+        } catch (WhatsAppDeliveryException exception) {
+            throw exception;
+        } catch (JacksonException exception) {
+            throw new WhatsAppDeliveryException("Unable to parse Meta WhatsApp media response", false, exception);
+        } catch (IOException exception) {
+            throw new WhatsAppDeliveryException("Meta WhatsApp media upload failed", true, exception);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new WhatsAppDeliveryException("Meta WhatsApp media upload was interrupted", true, exception);
+        }
     }
 
     private JsonNode execute(String method, URI uri, String accessToken, String body, boolean bearerRequired) {

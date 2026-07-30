@@ -9,6 +9,9 @@ import java.util.UUID;
 public record CustomerConversationResponse(
         UUID id,
         UUID customerId,
+        UUID leadId,
+        UUID quotationId,
+        UUID bookingId,
         String phone,
         String displayName,
         CustomerConversationStatus status,

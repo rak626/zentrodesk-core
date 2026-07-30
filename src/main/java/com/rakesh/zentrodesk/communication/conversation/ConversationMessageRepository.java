@@ -13,6 +13,8 @@ public interface ConversationMessageRepository extends JpaRepository<Conversatio
 
     Optional<ConversationMessage> findByTenantIdAndProviderMessageId(UUID tenantId, String providerMessageId);
 
+    boolean existsByDocumentId(UUID documentId);
+
     List<ConversationMessage> findAllByConversationIdAndTenantIdOrderByCreatedAtAsc(
             UUID conversationId,
             UUID tenantId

@@ -7,7 +7,6 @@ import static com.rakesh.zentrodesk.platform.role.TenantPermissions.BOOKING_CREA
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.BOOKING_READ;
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.BOOKING_UPDATE;
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.CONVERSATION_CREATE;
-import static com.rakesh.zentrodesk.platform.role.TenantPermissions.CONVERSATION_ASSIGN;
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.CONVERSATION_READ;
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.CONVERSATION_UPDATE;
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.CUSTOMER_CREATE;
@@ -18,7 +17,10 @@ import static com.rakesh.zentrodesk.platform.role.TenantPermissions.DRIVER_CREAT
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.DRIVER_DELETE;
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.DRIVER_READ;
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.DRIVER_UPDATE;
-import static com.rakesh.zentrodesk.platform.role.TenantPermissions.LEAD_ASSIGN;
+import static com.rakesh.zentrodesk.platform.role.TenantPermissions.GUIDE_CREATE;
+import static com.rakesh.zentrodesk.platform.role.TenantPermissions.GUIDE_DELETE;
+import static com.rakesh.zentrodesk.platform.role.TenantPermissions.GUIDE_READ;
+import static com.rakesh.zentrodesk.platform.role.TenantPermissions.GUIDE_UPDATE;
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.LEAD_CREATE;
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.LEAD_DELETE;
 import static com.rakesh.zentrodesk.platform.role.TenantPermissions.LEAD_READ;
@@ -53,24 +55,26 @@ public enum FixedTenantRole {
     OWNER("Owner", "Full tenant administration and operational access", TenantPermissions.all()),
     MANAGER("Manager", "Operational management with read-only team access", Set.of(
             DASHBOARD_READ, CUSTOMER_READ, CUSTOMER_CREATE, CUSTOMER_UPDATE, LEAD_READ, LEAD_CREATE, LEAD_UPDATE,
-            LEAD_DELETE, LEAD_ASSIGN, QUOTATION_READ, QUOTATION_CREATE, QUOTATION_UPDATE, BOOKING_READ,
+            LEAD_DELETE, QUOTATION_READ, QUOTATION_CREATE, QUOTATION_UPDATE, BOOKING_READ,
             BOOKING_CREATE, BOOKING_UPDATE, PAYMENT_READ, PAYMENT_CREATE, PAYMENT_UPDATE, PROPERTY_READ,
             PROPERTY_CREATE, PROPERTY_UPDATE, ROOM_READ, ROOM_CREATE, ROOM_UPDATE, RESERVATION_READ,
             RESERVATION_CREATE, RESERVATION_UPDATE, DRIVER_READ, DRIVER_CREATE, DRIVER_UPDATE, DRIVER_DELETE,
+            GUIDE_READ, GUIDE_CREATE, GUIDE_UPDATE, GUIDE_DELETE,
             TASK_READ, TASK_CREATE, TASK_UPDATE, CONVERSATION_READ, CONVERSATION_CREATE, CONVERSATION_UPDATE,
-            CONVERSATION_ASSIGN,
             NOTIFICATION_READ, NOTIFICATION_UPDATE, REPORT_READ, REPORT_EXPORT, AUDIT_READ, TEAM_READ, ROLE_READ
     )),
     SALES("Sales", "Customer, lead, quotation, and booking sales workflows", Set.of(
             DASHBOARD_READ, CUSTOMER_READ, CUSTOMER_CREATE, CUSTOMER_UPDATE, LEAD_READ, LEAD_CREATE, LEAD_UPDATE,
-            LEAD_ASSIGN, QUOTATION_READ, QUOTATION_CREATE, QUOTATION_UPDATE, BOOKING_READ, BOOKING_CREATE,
-            BOOKING_UPDATE, PAYMENT_READ, TASK_READ, TASK_CREATE, TASK_UPDATE, CONVERSATION_READ,
+            QUOTATION_READ, QUOTATION_CREATE, QUOTATION_UPDATE, BOOKING_READ, BOOKING_CREATE,
+            BOOKING_UPDATE, PAYMENT_READ, PROPERTY_READ, ROOM_READ, RESERVATION_READ, DRIVER_READ, GUIDE_READ,
+            TASK_READ, TASK_CREATE, TASK_UPDATE, CONVERSATION_READ,
             CONVERSATION_CREATE, CONVERSATION_UPDATE, NOTIFICATION_READ, NOTIFICATION_UPDATE
     )),
     OPERATIONS("Operations", "Booking allocation, inventory, driver, and task operations", Set.of(
             DASHBOARD_READ, CUSTOMER_READ, BOOKING_READ, BOOKING_UPDATE, PROPERTY_READ, PROPERTY_CREATE,
             PROPERTY_UPDATE, ROOM_READ, ROOM_CREATE, ROOM_UPDATE, RESERVATION_READ, RESERVATION_CREATE,
             RESERVATION_UPDATE, DRIVER_READ, DRIVER_CREATE, DRIVER_UPDATE, DRIVER_DELETE, TASK_READ, TASK_CREATE,
+            GUIDE_READ, GUIDE_CREATE, GUIDE_UPDATE, GUIDE_DELETE,
             TASK_UPDATE, CONVERSATION_READ, CONVERSATION_CREATE, CONVERSATION_UPDATE,
             NOTIFICATION_READ, NOTIFICATION_UPDATE
     )),

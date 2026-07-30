@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface CustomerConversationRepository extends
@@ -13,4 +14,10 @@ public interface CustomerConversationRepository extends
     Optional<CustomerConversation> findByIdAndTenantId(UUID id, UUID tenantId);
 
     Optional<CustomerConversation> findByTenantIdAndNormalizedPhone(UUID tenantId, String normalizedPhone);
+
+    List<CustomerConversation> findAllByTenantIdAndLeadId(UUID tenantId, UUID leadId);
+
+    List<CustomerConversation> findAllByTenantIdAndQuotationId(UUID tenantId, UUID quotationId);
+
+    List<CustomerConversation> findAllByTenantIdAndBookingId(UUID tenantId, UUID bookingId);
 }

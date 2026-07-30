@@ -60,6 +60,12 @@ springdoc:
   paths-to-match: /api/app/**, /api/platform/**
 
 app:
+  quotation:
+    pdf-processing-enabled: ${QUOTATION_PDF_PROCESSING_ENABLED:true}
+    pdf-processing-interval: ${QUOTATION_PDF_PROCESSING_INTERVAL_MS:2000}
+    pdf-max-attempts: ${QUOTATION_PDF_MAX_ATTEMPTS:5}
+    default-whatsapp-template-name: ${WHATSAPP_QUOTATION_TEMPLATE_NAME:quotation_document}
+    default-whatsapp-template-language: ${WHATSAPP_QUOTATION_TEMPLATE_LANGUAGE:en}
   observability:
     metrics-token: ${METRICS_TOKEN:}
   security:

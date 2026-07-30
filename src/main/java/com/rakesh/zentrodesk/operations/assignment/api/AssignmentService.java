@@ -14,6 +14,7 @@ import com.rakesh.zentrodesk.operations.assignment.DriverAssignmentHistory;
 import com.rakesh.zentrodesk.operations.assignment.DriverAssignmentHistoryRepository;
 import com.rakesh.zentrodesk.operations.assignment.DriverAssignmentRepository;
 import com.rakesh.zentrodesk.operations.booking.Booking;
+import com.rakesh.zentrodesk.operations.booking.BookingResourcesRequestedEvent;
 import com.rakesh.zentrodesk.operations.booking.BookingRepository;
 import com.rakesh.zentrodesk.operations.booking.BookingStatus;
 import com.rakesh.zentrodesk.operations.driver.Driver;
@@ -36,6 +37,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.context.event.EventListener;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DateTimeException;
@@ -203,6 +205,66 @@ public class AssignmentService {
         recordHistory(assignment, AssignmentAction.ASSIGNED, null, null, null, "Assignment created");
         notificationService.enqueue(assignment, AssignmentAction.ASSIGNED);
         return toResponse(assignment, true);
+    }
+
+    @EventListener
+    public void assignQuotationTransport(BookingResourcesRequestedEvent event) {
+        if (event.transports().isEmpty()) {
+            return;
+        }
+        Booking booking = bookingRepository.findByIdAndTenantId(event.bookingId(), event.tenantId())
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+        event.transports().stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        BookingResourcesRequestedEvent.TransportBlock::quotationItemId
+                ))
+                .values()
+                .forEach(blocks -> {
+                    if (blocks.getFirst().capacityOverridden()) {
+                        return;
+                    }
+                    int capacity = blocks.stream()
+                            .mapToInt(block -> getAvailableVehicle(block.vehicleId()).getCapacity())
+                            .sum();
+                    if (capacity < event.adults()) {
+                        throw new ConflictException(
+                                "Selected vehicles hold " + capacity + " adults; " + event.adults()
+                                        + " are required. Enable the capacity override to continue."
+                        );
+                    }
+                });
+        event.transports().forEach(block -> {
+            Vehicle vehicle = getAvailableVehicle(block.vehicleId());
+            Driver driver = driverRepository.findByTenantIdAndVehicleIdAndActiveTrue(
+                            event.tenantId(),
+                            vehicle.getId()
+                    )
+                    .orElseThrow(() -> new ConflictException("Selected vehicle has no fixed driver"));
+            if (driver.getStatus() == DriverStatus.UNAVAILABLE) {
+                throw new ConflictException("Selected vehicle driver is unavailable");
+            }
+            validateRange(block.pickupAt(), block.dropoffAt(), true);
+            validateBooking(booking, block.pickupAt(), block.dropoffAt());
+            ensureAvailable(driver.getId(), vehicle.getId(), block.pickupAt(), block.dropoffAt(), null);
+            DriverAssignment assignment = save(DriverAssignment.builder()
+                    .tenantId(event.tenantId())
+                    .booking(booking)
+                    .driver(driver)
+                    .vehicle(vehicle)
+                    .pickupAt(block.pickupAt())
+                    .dropoffAt(block.dropoffAt())
+                    .pickupLocation(block.pickupLocation())
+                    .dropoffLocation(block.dropoffLocation())
+                    .status(AssignmentStatus.PENDING)
+                    .idempotencyKey(event.quotationId() + "-vehicle-" + vehicle.getId())
+                    .active(true)
+                    .build());
+            if (booking.getDriver() == null) {
+                booking.setDriver(driver);
+            }
+            recordHistory(assignment, AssignmentAction.ASSIGNED, null, null, null, "Created from quotation");
+            notificationService.enqueue(assignment, AssignmentAction.ASSIGNED);
+        });
     }
 
     @Transactional

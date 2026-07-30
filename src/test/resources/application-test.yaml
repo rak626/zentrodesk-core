@@ -6,6 +6,8 @@ spring:
       ddl-auto: validate
 
 app:
+  quotation:
+    pdf-processing-enabled: false
   observability:
     metrics-token: integration-metrics-token
   flyway:

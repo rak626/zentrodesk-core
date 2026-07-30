@@ -73,6 +73,18 @@ public class ConversationMessage extends BaseEntity {
     @Column(name = "provider_message_id", length = 100)
     private String providerMessageId;
 
+    @Column(name = "document_id")
+    private UUID documentId;
+
+    @Column(name = "document_file_name", length = 180)
+    private String documentFileName;
+
+    @Column(name = "template_name", length = 512)
+    private String templateName;
+
+    @Column(name = "template_language", length = 10)
+    private String templateLanguage;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ConversationMessageStatus status;

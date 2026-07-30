@@ -38,6 +38,10 @@ public final class TenantPermissions {
     public static final String DRIVER_CREATE = "DRIVER_CREATE";
     public static final String DRIVER_UPDATE = "DRIVER_UPDATE";
     public static final String DRIVER_DELETE = "DRIVER_DELETE";
+    public static final String GUIDE_READ = "GUIDE_READ";
+    public static final String GUIDE_CREATE = "GUIDE_CREATE";
+    public static final String GUIDE_UPDATE = "GUIDE_UPDATE";
+    public static final String GUIDE_DELETE = "GUIDE_DELETE";
     public static final String TASK_READ = "TASK_READ";
     public static final String TASK_CREATE = "TASK_CREATE";
     public static final String TASK_UPDATE = "TASK_UPDATE";
@@ -94,6 +98,10 @@ public final class TenantPermissions {
             DRIVER_CREATE,
             DRIVER_UPDATE,
             DRIVER_DELETE,
+            GUIDE_READ,
+            GUIDE_CREATE,
+            GUIDE_UPDATE,
+            GUIDE_DELETE,
             TASK_READ,
             TASK_CREATE,
             TASK_UPDATE,

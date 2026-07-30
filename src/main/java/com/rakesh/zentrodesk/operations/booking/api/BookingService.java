@@ -1,12 +1,14 @@
 package com.rakesh.zentrodesk.operations.booking.api;
 
 import com.rakesh.zentrodesk.common.api.PageResponse;
+import com.rakesh.zentrodesk.common.ownership.OwnershipChangedEvent;
 import com.rakesh.zentrodesk.common.exception.BadRequestException;
 import com.rakesh.zentrodesk.common.exception.ConflictException;
 import com.rakesh.zentrodesk.common.exception.ResourceNotFoundException;
 import com.rakesh.zentrodesk.common.pagination.PaginationUtils;
 import com.rakesh.zentrodesk.common.search.SearchSpecificationBuilder;
 import com.rakesh.zentrodesk.operations.booking.Booking;
+import com.rakesh.zentrodesk.operations.booking.BookingResourcesRequestedEvent;
 import com.rakesh.zentrodesk.operations.booking.BookingGuest;
 import com.rakesh.zentrodesk.operations.booking.BookingGuestRepository;
 import com.rakesh.zentrodesk.operations.booking.BookingRepository;
@@ -22,8 +24,15 @@ import com.rakesh.zentrodesk.platform.audit.AuditEventResponse;
 import com.rakesh.zentrodesk.platform.audit.AuditEventService;
 import com.rakesh.zentrodesk.platform.audit.AuditMutation;
 import com.rakesh.zentrodesk.platform.tenant.CurrentTenant;
+import com.rakesh.zentrodesk.platform.user.UserRepository;
+import com.rakesh.zentrodesk.sales.customer.Customer;
+import com.rakesh.zentrodesk.sales.customer.LeadCustomerConversionService;
 import com.rakesh.zentrodesk.sales.customer.SalesReferenceService;
 import com.rakesh.zentrodesk.sales.quotation.Quotation;
+import com.rakesh.zentrodesk.sales.quotation.QuotationItem;
+import com.rakesh.zentrodesk.sales.quotation.QuotationItemRepository;
+import com.rakesh.zentrodesk.sales.quotation.QuotationItemResource;
+import com.rakesh.zentrodesk.sales.quotation.QuotationItemResourceRepository;
 import com.rakesh.zentrodesk.sales.quotation.QuotationRepository;
 import com.rakesh.zentrodesk.sales.quotation.QuotationStatus;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +46,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -76,13 +86,17 @@ public class BookingService {
     private final BookingGuestRepository guestRepository;
     private final PaymentRepository paymentRepository;
     private final QuotationRepository quotationRepository;
+    private final QuotationItemRepository quotationItemRepository;
+    private final QuotationItemResourceRepository quotationItemResourceRepository;
     private final SalesReferenceService salesReferenceService;
+    private final LeadCustomerConversionService leadCustomerConversionService;
     private final DriverRepository driverRepository;
     private final AuditEventService auditEventService;
     private final CurrentTenant currentTenant;
     private final JdbcClient jdbcClient;
     private final AssignmentService assignmentService;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
     public PageResponse<BookingResponse> findAll(
@@ -140,13 +154,19 @@ public class BookingService {
         }
         validateCustomer(request.customerId(), tenantId);
         validateQuotation(request.quotationId(), tenantId);
+        Quotation quotation = request.quotationId() == null
+                ? null
+                : quotationRepository.findByIdAndTenantId(request.quotationId(), tenantId).orElseThrow();
         validateDates(request.travelStart(), request.travelEnd());
         Driver driver = request.driverId() == null ? null : getDriver(request.driverId(), tenantId);
         BigDecimal agreedValue = money(request.agreedValue());
-        Booking booking = Booking.builder()
+        UUID ownerId = currentTenant.userId();
+        Booking booking = bookingRepository.saveAndFlush(Booking.builder()
                 .tenantId(tenantId)
                 .customerId(request.customerId())
                 .quotationId(request.quotationId())
+                .leadId(quotation == null ? null : quotation.getLeadId())
+                .assignedUserId(ownerId)
                 .driver(driver)
                 .bookingNumber(nextNumber(tenantId))
                 .travelStart(request.travelStart())
@@ -156,7 +176,13 @@ public class BookingService {
                 .idempotencyKey(idempotencyKey)
                 .notes(trimToNull(request.notes()))
                 .active(request.active() == null || request.active())
-                .build();
+                .build());
+        publishOwnership(
+                booking,
+                quotation == null ? null : quotation.getAssignedUserId(),
+                ownerId,
+                "BOOKING_CREATED"
+        );
         return toResponse(bookingRepository.save(booking));
     }
 
@@ -184,13 +210,17 @@ public class BookingService {
         if (quotation.getStatus() != QuotationStatus.ACCEPTED) {
             throw new ConflictException("Only accepted quotations can be converted");
         }
-        if (quotation.getCustomerId() == null) {
-            throw new ConflictException("Quotation must have a customer before conversion");
+        if (quotation.isSuperseded()) {
+            throw new ConflictException("Superseded quotation revision cannot be converted");
         }
-        Booking booking = Booking.builder()
+        Customer customer = leadCustomerConversionService.resolveForBooking(quotation);
+        UUID ownerId = currentTenant.userId();
+        Booking booking = bookingRepository.saveAndFlush(Booking.builder()
                 .tenantId(tenantId)
-                .customerId(quotation.getCustomerId())
+                .customerId(customer.getId())
                 .quotationId(quotation.getId())
+                .leadId(quotation.getLeadId())
+                .assignedUserId(ownerId)
                 .bookingNumber(nextNumber(tenantId))
                 .travelStart(quotation.getTravelStart())
                 .travelEnd(quotation.getTravelEnd())
@@ -199,8 +229,62 @@ public class BookingService {
                 .idempotencyKey(idempotencyKey)
                 .notes(request == null ? null : trimToNull(request.notes()))
                 .active(true)
-                .build();
-        return toResponse(bookingRepository.saveAndFlush(booking));
+                .build());
+        eventPublisher.publishEvent(resourceEvent(quotation, booking));
+        publishOwnership(booking, quotation.getAssignedUserId(), ownerId, "BOOKING_CREATED");
+        return toResponse(booking);
+    }
+
+    private BookingResourcesRequestedEvent resourceEvent(Quotation quotation, Booking booking) {
+        List<QuotationItem> items =
+                quotationItemRepository.findByQuotationIdAndActiveTrueOrderByPosition(quotation.getId());
+        List<BookingResourcesRequestedEvent.RoomBlock> rooms = items.stream()
+                .filter(item -> item.getType() == com.rakesh.zentrodesk.sales.quotation.QuotationItemType.HOTEL)
+                .flatMap(item -> resources(item).stream().map(resource ->
+                        new BookingResourcesRequestedEvent.RoomBlock(
+                                item.getId(),
+                                resource.getResourceId(),
+                                item.getCheckIn(),
+                                item.getCheckOut(),
+                                item.isCapacityOverridden()
+                        )))
+                .toList();
+        List<BookingResourcesRequestedEvent.TransportBlock> transports = items.stream()
+                .filter(item -> item.getType() == com.rakesh.zentrodesk.sales.quotation.QuotationItemType.VEHICLE)
+                .flatMap(item -> resources(item).stream().map(resource ->
+                        new BookingResourcesRequestedEvent.TransportBlock(
+                                item.getId(),
+                                resource.getResourceId(),
+                                item.getStartsAt(),
+                                item.getEndsAt(),
+                                item.getPickupLocation(),
+                                item.getDropoffLocation(),
+                                item.isCapacityOverridden()
+                        )))
+                .toList();
+        List<BookingResourcesRequestedEvent.GuideBlock> guides = items.stream()
+                .filter(item -> item.getType() == com.rakesh.zentrodesk.sales.quotation.QuotationItemType.GUIDE)
+                .flatMap(item -> resources(item).stream().map(resource ->
+                        new BookingResourcesRequestedEvent.GuideBlock(
+                                resource.getResourceId(),
+                                item.getStartsAt(),
+                                item.getEndsAt()
+                        )))
+                .toList();
+        return new BookingResourcesRequestedEvent(
+                quotation.getTenantId(),
+                booking.getId(),
+                quotation.getId(),
+                quotation.getAdults(),
+                rooms,
+                transports,
+                guides
+        );
+    }
+
+    private List<QuotationItemResource> resources(QuotationItem item) {
+        return quotationItemResourceRepository
+                .findByQuotationItemIdAndActiveTrueOrderByCreatedAt(item.getId());
     }
 
     @Transactional
@@ -228,6 +312,21 @@ public class BookingService {
         if (request.active() != null) {
             booking.setActive(request.active());
         }
+        return toResponse(booking);
+    }
+
+    @Transactional
+    @AuditMutation(entityType = "BOOKING", action = "ASSIGN")
+    public BookingResponse assign(UUID id, BookingAssignRequest request) {
+        Booking booking = getBooking(id);
+        assertVersion(booking.getVersion(), request.version(), "Booking");
+        validateAssignedUser(request.assignedUserId(), booking.getTenantId());
+        publishOwnership(
+                booking,
+                booking.getAssignedUserId(),
+                request.assignedUserId(),
+                "OWNER_REASSIGNED"
+        );
         return toResponse(booking);
     }
 
@@ -472,6 +571,35 @@ public class BookingService {
         salesReferenceService.requireQuotation(quotationId, tenantId);
     }
 
+    private void validateAssignedUser(UUID userId, UUID tenantId) {
+        if (!userRepository.existsByIdAndTenantId(userId, tenantId)) {
+            throw new ResourceNotFoundException("Assigned user not found");
+        }
+    }
+
+    private void publishOwnership(
+            Booking booking,
+            UUID previousOwnerId,
+            UUID ownerId,
+            String reason
+    ) {
+        eventPublisher.publishEvent(new OwnershipChangedEvent(
+                booking.getTenantId(),
+                previousOwnerId,
+                ownerId,
+                currentTenant.userId(),
+                reason,
+                "BOOKING",
+                booking.getId(),
+                booking.getLeadId(),
+                booking.getQuotationId(),
+                booking.getId(),
+                null,
+                booking.getCustomerId(),
+                Instant.now()
+        ));
+    }
+
     private Driver getDriver(UUID driverId, UUID tenantId) {
         return driverRepository.findByIdAndTenantId(driverId, tenantId)
                 .orElseThrow(() -> new ResourceNotFoundException("Driver not found"));
@@ -533,6 +661,9 @@ public class BookingService {
                 booking.getId(),
                 booking.getCustomerId(),
                 booking.getQuotationId(),
+                booking.getLeadId(),
+                booking.getAssignedUserId(),
+                ownerName(booking.getAssignedUserId(), booking.getTenantId()),
                 booking.getDriver() == null ? null : booking.getDriver().getId(),
                 booking.getBookingNumber(),
                 booking.getTravelStart(),
@@ -561,6 +692,16 @@ public class BookingService {
                 guest.getIdentityNumber(),
                 guest.isPrimaryGuest()
         );
+    }
+
+    private String ownerName(UUID ownerId, UUID tenantId) {
+        if (ownerId == null) {
+            return null;
+        }
+        return userRepository.findWithTenantRoleAndPermissionsByIdAndTenantId(ownerId, tenantId)
+                .map(user -> (user.getFirstName() + " "
+                        + (user.getLastName() == null ? "" : user.getLastName())).trim())
+                .orElse(null);
     }
 
     private PaymentResponse toPaymentResponse(Payment payment) {

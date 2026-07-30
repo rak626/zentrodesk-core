@@ -86,7 +86,7 @@ public class CustomerConversationController {
     }
 
     @PutMapping("/{id}/assignments")
-    @PreAuthorize("hasAuthority('" + TenantPermissions.CONVERSATION_ASSIGN + "')")
+    @PreAuthorize("hasRole('OWNER')")
     public ApiResponse<CustomerConversationResponse> assign(
             @PathVariable UUID id,
             @Valid @RequestBody ConversationAssignmentRequest request,

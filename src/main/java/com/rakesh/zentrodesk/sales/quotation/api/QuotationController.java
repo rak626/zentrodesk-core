@@ -74,6 +74,19 @@ public class QuotationController {
         );
     }
 
+    @PostMapping("/{id}/revisions")
+    @PreAuthorize("hasAuthority('" + TenantPermissions.QUOTATION_CREATE + "')")
+    public ApiResponse<QuotationResponse> createRevision(
+            @PathVariable UUID id,
+            HttpServletRequest servletRequest
+    ) {
+        return ApiResponse.success(
+                "Quotation revision created successfully",
+                quotationService.createRevision(id),
+                servletRequest.getRequestURI()
+        );
+    }
+
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('" + TenantPermissions.QUOTATION_UPDATE + "')")
     public ApiResponse<QuotationResponse> update(
@@ -98,6 +111,20 @@ public class QuotationController {
         return ApiResponse.success(
                 "Quotation status updated successfully",
                 quotationService.updateStatus(id, request),
+                servletRequest.getRequestURI()
+        );
+    }
+
+    @PatchMapping("/{id}/assignee")
+    @PreAuthorize("hasRole('OWNER')")
+    public ApiResponse<QuotationResponse> assign(
+            @PathVariable UUID id,
+            @Valid @RequestBody QuotationAssignRequest request,
+            HttpServletRequest servletRequest
+    ) {
+        return ApiResponse.success(
+                "Quotation assigned successfully",
+                quotationService.assign(id, request),
                 servletRequest.getRequestURI()
         );
     }

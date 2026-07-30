@@ -10,6 +10,7 @@ import com.rakesh.zentrodesk.communication.conversation.ConversationMessageType;
 import com.rakesh.zentrodesk.communication.conversation.CustomerConversation;
 import com.rakesh.zentrodesk.communication.conversation.CustomerConversationRepository;
 import com.rakesh.zentrodesk.communication.conversation.CustomerConversationStatus;
+import com.rakesh.zentrodesk.communication.quotation.QuotationDocumentService;
 import com.rakesh.zentrodesk.sales.customer.ContactNormalizer;
 import com.rakesh.zentrodesk.sales.customer.Customer;
 import com.rakesh.zentrodesk.sales.customer.CustomerRepository;
@@ -39,6 +40,7 @@ public class WhatsAppWebhookInboxProcessor {
     private final ObjectMapper objectMapper;
     private final PlatformTransactionManager transactionManager;
     private final ApplicationMetrics metrics;
+    private final QuotationDocumentService documentService;
 
     @Value("${app.whatsapp.webhook-max-attempts:8}")
     private int maxAttempts;
@@ -172,6 +174,17 @@ public class WhatsAppWebhookInboxProcessor {
                     if (nextStatus == ConversationMessageStatus.FAILED
                             || statusRank(nextStatus) > statusRank(message.getStatus())) {
                         message.setStatus(nextStatus);
+                    }
+                    if (message.getDocumentId() != null) {
+                        if (nextStatus == ConversationMessageStatus.DELIVERED
+                                || nextStatus == ConversationMessageStatus.READ) {
+                            documentService.markDeliveryConfirmed(message.getDocumentId());
+                        } else if (nextStatus == ConversationMessageStatus.FAILED) {
+                            documentService.markDeliveryFailed(
+                                    message.getDocumentId(),
+                                    "WhatsApp reported document delivery failure"
+                            );
+                        }
                     }
                 });
     }

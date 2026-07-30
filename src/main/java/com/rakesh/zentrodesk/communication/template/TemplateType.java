@@ -6,6 +6,8 @@ public enum TemplateType {
 
     EMAIL,
 
-    SMS
+    SMS,
+
+    QUOTATION_PDF
 
 }
